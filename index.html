@@ -1,4 +1,50 @@
-<script>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ES Hoje - Assistente de SEO e Títulos</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #0056b3; font-size: 24px; margin-bottom: 20px; }
+        label { font-weight: bold; display: block; margin-top: 15px; font-size: 14px; }
+        textarea, input[type="text"], input[type="password"] { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
+        textarea { height: 180px; resize: vertical; }
+        button { background-color: #0056b3; color: white; border: none; padding: 12px 15px; margin-top: 15px; cursor: pointer; border-radius: 4px; font-size: 14px; font-weight: bold; margin-right: 10px; }
+        button:hover { background-color: #004494; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        #resultado { margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 4px; white-space: pre-wrap; display: none; line-height: 1.5; font-size: 15px; }
+        .config-section { background: #e3f2fd; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #b6d4fe; }
+        .aviso { font-size: 12px; color: #555; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ES Hoje - Assistente de SEO</h1>
+        
+        <div class="config-section">
+            <label for="apiKey">Chave da API do Gemini:</label>
+            <input type="password" id="apiKey" placeholder="Cole sua chave (API Key) aqui">
+            <div class="aviso">A chave fica salva automaticamente no seu navegador. Cada colega só precisa colar a chave na primeira vez que acessar.</div>
+        </div>
+
+        <label for="materia">Texto da Matéria:</label>
+        <textarea id="materia" placeholder="Cole o texto da matéria aqui..."></textarea>
+
+        <label for="palavraChave">Palavra-chave (Obrigatório):</label>
+        <input type="text" id="palavraChave" placeholder="Ex: acidente na terceira ponte">
+
+        <label for="tituloEscolhido">Título Escolhido (Preencha apenas se for gerar SEO):</label>
+        <input type="text" id="tituloEscolhido" placeholder="Ex: Acidente na Terceira Ponte deixa trânsito lento">
+
+        <button id="btnTitulo" onclick="gerar('titulo')">Gerar Títulos (60 carac.)</button>
+        <button id="btnSeo" onclick="gerar('seo')">Gerar SEO (Rank Math)</button>
+
+        <div id="resultado"></div>
+    </div>
+
+    <script>
         document.addEventListener("DOMContentLoaded", () => {
             const savedKey = localStorage.getItem('esHojeGeminiKey');
             if(savedKey) document.getElementById('apiKey').value = savedKey;
@@ -61,3 +107,5 @@
             }
         }
     </script>
+</body>
+</html>
