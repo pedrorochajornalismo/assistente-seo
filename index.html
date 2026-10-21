@@ -1,51 +1,4 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ES Hoje - Assistente de SEO e Títulos</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #0056b3; font-size: 24px; margin-bottom: 20px; }
-        label { font-weight: bold; display: block; margin-top: 15px; font-size: 14px; }
-        textarea, input[type="text"], input[type="password"] { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
-        textarea { height: 180px; resize: vertical; }
-        button { background-color: #0056b3; color: white; border: none; padding: 12px 15px; margin-top: 15px; cursor: pointer; border-radius: 4px; font-size: 14px; font-weight: bold; margin-right: 10px; }
-        button:hover { background-color: #004494; }
-        button:disabled { background-color: #cccccc; cursor: not-allowed; }
-        #resultado { margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 4px; white-space: pre-wrap; display: none; line-height: 1.5; font-size: 15px; }
-        .config-section { background: #e3f2fd; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #b6d4fe; }
-        .aviso { font-size: 12px; color: #555; margin-top: 5px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>ES Hoje - Assistente de SEO</h1>
-        
-        <div class="config-section">
-            <label for="apiKey">Chave da API do Gemini:</label>
-            <input type="password" id="apiKey" placeholder="Cole sua chave (API Key) aqui">
-            <div class="aviso">A chave fica salva automaticamente no seu navegador. Cada colega só precisa colar a chave na primeira vez que acessar.</div>
-        </div>
-
-        <label for="materia">Texto da Matéria:</label>
-        <textarea id="materia" placeholder="Cole o texto da matéria aqui..."></textarea>
-
-        <label for="palavraChave">Palavra-chave (Obrigatório):</label>
-        <input type="text" id="palavraChave" placeholder="Ex: acidente na terceira ponte">
-
-        <label for="tituloEscolhido">Título Escolhido (Preencha apenas se for gerar SEO):</label>
-        <input type="text" id="tituloEscolhido" placeholder="Ex: Acidente na Terceira Ponte deixa trânsito lento">
-
-        <button id="btnTitulo" onclick="gerar('titulo')">Gerar Títulos (60 carac.)</button>
-        <button id="btnSeo" onclick="gerar('seo')">Gerar SEO (Rank Math)</button>
-
-        <div id="resultado"></div>
-    </div>
-
-    <script>
-        // Carrega a chave salva automaticamente
+<script>
         document.addEventListener("DOMContentLoaded", () => {
             const savedKey = localStorage.getItem('esHojeGeminiKey');
             if(savedKey) document.getElementById('apiKey').value = savedKey;
@@ -68,27 +21,26 @@
                 return;
             }
             if (tipo === 'seo' && !tituloEscolhido) {
-                alert("Para gerar o SEO, você precisa preencher também o Título Escolhido.");
+                alert("Para gerar o SEO, preencha também o Título Escolhido.");
                 return;
             }
 
-            // Salva a chave no navegador para o usuário não precisar digitar de novo
             localStorage.setItem('esHojeGeminiKey', apiKey);
-
             botoes.forEach(b => b.disabled = true);
             resultadoDiv.style.display = 'block';
             resultadoDiv.innerHTML = "Processando matéria... Aguarde.";
 
             let promptTexto = "";
-
             if (tipo === 'titulo') {
                 promptTexto = `Papel: Você é o editor de SEO do ES Hoje sugerindo títulos. Contexto: O título tem até 60 caracteres. Número que carrega peso de notícia pode abrir o título; número decorativo fica no meio ou no fim. Clickbait é permitido, com um limite único: o título nunca promete algo que o texto não entrega. Palavra-chave: ${palavraChave} Expectativa: Gere cinco opções de título para a matéria abaixo, cada uma com a palavra-chave. Formato: Lista numerada, com a contagem de caracteres ao lado de cada opção. Nada além da lista. Restrições: Nenhuma opção pode passar de 60 caracteres. Nenhuma pode prometer informação que não está no texto. Esclarecimento: Se o texto não tiver um fato forte para abrir o título, devolva a lista mesmo assim e marque com um asterisco a opção mais segura. Informações: ${materia}`;
             } else {
                 promptTexto = `Papel: Você é o editor de SEO preenchendo os campos do Rank Math. Contexto: A meta descrição resume a matéria, contém a palavra-chave foco e respeita o limite de caracteres do manual. O slug é curto, em português, sem palavras desnecessárias. Título escolhido: ${tituloEscolhido} Expectativa: A partir do texto abaixo, gere os três campos: meta descrição, slug, palavra-chave foco. Formato: Três linhas, cada uma rotulada (Meta descrição com 920 px/ Slug com 25 caracteres / Palavra-chave foco). Nada além disso. Restrições: A meta descrição não pode ser cópia do título. O slug não pode ter acento, caractere especial ou data. Esclarecimento: Se o texto tocar mais de um tema forte, escolha o foco mais forte pelo peso da matéria e sinalize a segunda opção entre parênteses na linha da palavra-chave. Informações: ${materia}`;
             }
 
+            const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -101,14 +53,11 @@
                 }
 
                 const data = await response.json();
-                const textoResposta = data.candidates[0].content.parts[0].text;
-                resultadoDiv.innerHTML = textoResposta;
+                resultadoDiv.innerHTML = data.candidates[0].content.parts[0].text;
             } catch (error) {
-                resultadoDiv.innerHTML = `<span style="color: red;">Falha na comunicação: Verifique se sua Chave da API está correta e tente novamente.</span>`;
+                resultadoDiv.innerHTML = `<span style="color: red;">Falha na comunicação: Verifique se a sua Chave da API está correta e tente novamente.</span>`;
             } finally {
                 botoes.forEach(b => b.disabled = false);
             }
         }
     </script>
-</body>
-</html>
