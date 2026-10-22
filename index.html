@@ -25,7 +25,7 @@
         
         <div class="config-section">
             <label for="apiKey">Chave da API do Gemini:</label>
-            <input type="password" id="apiKey" placeholder="Cole sua chave (API Key) aqui">
+            <input type="password" id="apiKey" placeholder="Cole sua chave (AQ...) aqui">
             <div class="aviso">A chave fica salva automaticamente no seu navegador. Cada colega só precisa colar a chave na primeira vez que acessar.</div>
         </div>
 
@@ -74,7 +74,7 @@
             localStorage.setItem('esHojeGeminiKey', apiKey);
             botoes.forEach(b => b.disabled = true);
             resultadoDiv.style.display = 'block';
-            resultadoDiv.innerHTML = "Processando matéria com Gemini Pro... Aguarde.";
+            resultadoDiv.innerHTML = "Processando matéria com Gemini 1.5 Flash... Aguarde.";
 
             let promptTexto = "";
             if (tipo === 'titulo') {
@@ -83,15 +83,12 @@
                 promptTexto = `Papel: Você é o editor de SEO preenchendo os campos do Rank Math. Contexto: A meta descrição resume a matéria, contém a palavra-chave foco e respeita o limite de caracteres do manual. O slug é curto, em português, sem palavras desnecessárias. Título escolhido: ${tituloEscolhido} Expectativa: A partir do texto abaixo, gere os três campos: meta descrição, slug, palavra-chave foco. Formato: Três linhas, cada uma rotulada (Meta descrição com 920 px/ Slug com 25 caracteres / Palavra-chave foco). Nada além disso. Restrições: A meta descrição não pode ser cópia do título. O slug não pode ter acento, caractere especial ou data. Esclarecimento: Se o texto tocar mais de um tema forte, escolha o foco mais forte pelo peso da matéria e sinalize a segunda opção entre parênteses na linha da palavra-chave. Informações: ${materia}`;
             }
 
-            const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent";
+            const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
 
             try {
                 const response = await fetch(url, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'x-goog-api-key': apiKey
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: promptTexto }] }]
                     })
@@ -104,7 +101,7 @@
                 const data = await response.json();
                 resultadoDiv.innerHTML = data.candidates[0].content.parts[0].text;
             } catch (error) {
-                resultadoDiv.innerHTML = `<span style="color: red;">Falha na comunicação: Verifique se a sua Chave da API está correta e tente novamente.</span>`;
+                resultadoDiv.innerHTML = `<span style="color: red;">Falha na comunicação: Limite de acessos excedido ou chave incorreta. Aguarde 1 minuto e tente novamente. Detalhe: ${error.message}</span>`;
             } finally {
                 botoes.forEach(b => b.disabled = false);
             }
