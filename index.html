@@ -74,7 +74,7 @@
             localStorage.setItem('esHojeGeminiKey', apiKey);
             botoes.forEach(b => b.disabled = true);
             resultadoDiv.style.display = 'block';
-            resultadoDiv.innerHTML = "A processar matéria com Gemini 1.5 Flash... Aguarde.";
+            resultadoDiv.textContent = "A processar matéria com Gemini... Aguarde.";
 
             let promptTexto = "";
             if (tipo === 'titulo') {
@@ -83,29 +83,62 @@
                 promptTexto = `Papel: Você é o editor de SEO preenchendo os campos do Rank Math. Contexto: A meta descrição resume a matéria, contém a palavra-chave foco e respeita o limite de caracteres do manual. O slug é curto, em português, sem palavras desnecessárias. Título escolhido: ${tituloEscolhido} Expectativa: A partir do texto abaixo, gere os três campos: meta descrição, slug, palavra-chave foco. Formato: Três linhas, cada uma rotulada (Meta descrição com 920 px/ Slug com 25 caracteres / Palavra-chave foco). Nada além disso. Restrições: A meta descrição não pode ser cópia do título. O slug não pode ter acento, caractere especial ou data. Esclarecimento: Se o texto tocar mais de um tema forte, escolha o foco mais forte pelo peso da matéria e sinalize a segunda opção entre parênteses na linha da palavra-chave. Informações: ${materia}`;
             }
 
-            const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+            const modelos = [
+                "gemini-flash-latest",
+                "gemini-flash-lite-latest",
+                "gemini-3.1-flash-lite-preview"
+            ];
 
             try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'x-goog-api-key': apiKey
-                    },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: promptTexto }] }]
-                    })
-                });
+                let textoFinal = null;
+                let ultimoErro = "";
 
-                if (!response.ok) {
-                    const erroTexto = await response.text();
-                    throw new Error(`Erro na API (${response.status}): ${erroTexto}`);
+                for (const modelo of modelos) {
+                    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+                        resultadoDiv.textContent = `A processar com ${modelo} (tentativa ${tentativa})... Aguarde.`;
+
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-goog-api-key': apiKey
+                            },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: promptTexto }] }]
+                            })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            textoFinal = data.candidates[0].content.parts[0].text;
+                            break;
+                        }
+
+                        ultimoErro = `${modelo}: erro ${response.status}`;
+
+                        // 503 (sobrecarga) e 429 (limite): espera um pouco e tenta de novo
+                        if (response.status === 503 || response.status === 429) {
+                            await new Promise(r => setTimeout(r, 2000 * tentativa));
+                            continue;
+                        }
+                        // 404 (modelo não existe): pula para o próximo modelo
+                        if (response.status === 404) break;
+
+                        // 400/403 etc.: problema na chave ou no pedido, não adianta insistir
+                        throw new Error(`Erro na API (${response.status}): ${await response.text()}`);
+                    }
+                    if (textoFinal) break;
                 }
 
-                const data = await response.json();
-                resultadoDiv.innerHTML = data.candidates[0].content.parts[0].text;
+                if (!textoFinal) throw new Error(`Todos os modelos falharam. Último erro: ${ultimoErro}`);
+                resultadoDiv.textContent = textoFinal;
             } catch (error) {
-                resultadoDiv.innerHTML = `<span style="color: red;">Falha na comunicação: Verifique a sua chave e tente novamente. Detalhe: ${error.message}</span>`;
+                resultadoDiv.innerHTML = "";
+                const span = document.createElement("span");
+                span.style.color = "red";
+                span.textContent = `Falha na comunicação: ${error.message}`;
+                resultadoDiv.appendChild(span);
             } finally {
                 botoes.forEach(b => b.disabled = false);
             }
