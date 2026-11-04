@@ -14,10 +14,27 @@
         button { background-color: #0056b3; color: white; border: none; padding: 12px 15px; margin-top: 15px; cursor: pointer; border-radius: 4px; font-size: 14px; font-weight: bold; margin-right: 10px; }
         button:hover { background-color: #004494; }
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
-        #resultado { margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 4px; white-space: pre-wrap; display: none; line-height: 1.5; font-size: 15px; }
+        button.secundario { background-color: #6c757d; }
+        button.secundario:hover { background-color: #565e64; }
+        #resultado { margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 4px; display: none; line-height: 1.5; font-size: 15px; }
         .config-section { background: #e3f2fd; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #b6d4fe; }
         .config-section label:first-child { margin-top: 0; }
         .aviso { font-size: 12px; color: #555; margin-top: 5px; }
+
+        /* Resultados */
+        .item { background: #fff; border: 1px solid #d5dbe1; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+        .item .texto { font-size: 15px; word-break: break-word; }
+        .item .info { font-size: 12px; color: #555; margin-top: 4px; }
+        .item .rotulo { font-size: 12px; font-weight: bold; color: #0056b3; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 4px; }
+        .ok { color: #1b7f3b; font-weight: bold; }
+        .ruim { color: #c62828; font-weight: bold; }
+        .selo { display: inline-block; background: #fff3cd; color: #7a5b00; border: 1px solid #ffe08a; border-radius: 10px; font-size: 11px; padding: 1px 8px; margin-left: 6px; vertical-align: middle; }
+        .acoes { margin-top: 8px; }
+        button.mini { background: #e9f1fb; color: #0056b3; border: 1px solid #b6d4fe; padding: 4px 10px; margin: 0 6px 0 0; font-size: 12px; font-weight: bold; }
+        button.mini:hover { background: #d6e6f9; }
+        button.mini:disabled { background: #eee; color: #999; border-color: #ddd; }
+        .erro { color: red; white-space: pre-wrap; }
+        .rodape-resultado { margin-top: 6px; }
     </style>
 </head>
 <body>
@@ -43,13 +60,22 @@
         <label for="tituloEscolhido">Título Escolhido (Preencha apenas se for gerar SEO):</label>
         <input type="text" id="tituloEscolhido" placeholder="Ex: Acidente na Terceira Ponte deixa trânsito lento">
 
-        <button id="btnTitulo" onclick="gerar('titulo')">Gerar Títulos (60 carac.)</button>
-        <button id="btnSeo" onclick="gerar('seo')">Gerar SEO (Rank Math)</button>
+        <button class="principal" id="btnTitulo" onclick="gerar('titulo')">Gerar Títulos (60 carac.)</button>
+        <button class="principal" id="btnSeo" onclick="gerar('seo')">Gerar SEO (Rank Math)</button>
+        <button class="principal secundario" id="btnLimpar" onclick="limparTudo()">Limpar tudo</button>
 
         <div id="resultado"></div>
     </div>
 
     <script>
+        // ---------- Limites (a conferência é feita aqui no código, não pela IA) ----------
+        const LIMITE_TITULO = 60;       // caracteres
+        const LIMITE_META_PX = 920;     // pixels (estimativa)
+        const ALVO_META_CARAC = 150;    // alvo em caracteres para pedir à IA
+        const LIMITE_SLUG = 25;         // caracteres
+
+        const estado = { titulos: [], segura: 0, palavraChave: "", seo: null };
+
         document.addEventListener("DOMContentLoaded", () => {
             const savedKey = localStorage.getItem('esHojeGeminiKey');
             if (savedKey) document.getElementById('apiKey').value = savedKey;
@@ -57,9 +83,83 @@
             if (savedGroq) document.getElementById('groqKey').value = savedGroq;
         });
 
+        // ---------- Utilidades ----------
         const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 
-        // fetch que desiste depois de um tempo, para a página nunca ficar travada
+        function el(tag, props = {}, ...filhos) {
+            const e = document.createElement(tag);
+            Object.assign(e, props);
+            filhos.forEach(f => e.append(f));
+            return e;
+        }
+
+        function normalizar(s) {
+            return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        }
+
+        // Slug: minúsculas, sem acento, sem caracteres especiais, sem ano, até LIMITE_SLUG
+        function limparSlug(s) {
+            let t = normalizar(String(s))
+                .replace(/\b(19|20)\d{2}\b/g, "")
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "");
+            if (t.length > LIMITE_SLUG) {
+                if (t[LIMITE_SLUG] === "-") {
+                    t = t.slice(0, LIMITE_SLUG);
+                } else {
+                    const i = t.lastIndexOf("-", LIMITE_SLUG);
+                    t = i > 0 ? t.slice(0, i) : t.slice(0, LIMITE_SLUG);
+                }
+            }
+            return t.replace(/-+$/g, "");
+        }
+
+        // Largura estimada em pixels (Arial 14px, aproximando o resultado do Google)
+        const canvasMedida = document.createElement("canvas").getContext("2d");
+        function medirPx(texto) {
+            canvasMedida.font = "14px Arial";
+            return Math.round(canvasMedida.measureText(texto).width);
+        }
+
+        function lerJSON(texto) {
+            let t = String(texto).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+            try { return JSON.parse(t); } catch (e) { /* tenta extrair */ }
+            const m = t.match(/\{[\s\S]*\}/);
+            if (m) {
+                try { return JSON.parse(m[0]); } catch (e) { /* cai no erro abaixo */ }
+            }
+            throw new Error("A IA devolveu uma resposta fora do formato esperado. Tente novamente.");
+        }
+
+        async function copiar(texto, btn) {
+            try {
+                await navigator.clipboard.writeText(texto);
+            } catch (e) {
+                const ta = document.createElement("textarea");
+                ta.value = texto;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand("copy");
+                ta.remove();
+            }
+            const original = btn.textContent;
+            btn.textContent = "Copiado!";
+            setTimeout(() => { btn.textContent = original; }, 1200);
+        }
+
+        function botaoMini(texto, aoClicar) {
+            return el("button", { className: "mini", type: "button", textContent: texto, onclick: (ev) => aoClicar(ev.currentTarget) });
+        }
+
+        function setOcupado(sim) {
+            document.querySelectorAll("button.principal").forEach(b => b.disabled = sim);
+        }
+
+        function status(statusEl, msg) {
+            if (statusEl) statusEl.textContent = msg;
+        }
+
+        // ---------- Chamadas às IAs ----------
         async function fetchComTimeout(url, opcoes, ms) {
             const controle = new AbortController();
             const timer = setTimeout(() => controle.abort(), ms);
@@ -70,9 +170,8 @@
             }
         }
 
-        // Tenta o Gemini (vários modelos, com nova tentativa em 503/429).
-        // Devolve o texto ou lança erro com o último problema.
-        async function chamarGemini(apiKey, promptTexto, resultadoDiv) {
+        // Gemini: vários modelos, nova tentativa em 503/429. Pede a resposta em JSON.
+        async function chamarGemini(apiKey, promptTexto, statusEl) {
             const modelos = [
                 "gemini-flash-latest",
                 "gemini-flash-lite-latest",
@@ -82,7 +181,7 @@
 
             for (const modelo of modelos) {
                 for (let tentativa = 1; tentativa <= 2; tentativa++) {
-                    resultadoDiv.textContent = `Gemini (${modelo}), tentativa ${tentativa}... Aguarde.`;
+                    status(statusEl, `Gemini (${modelo}), tentativa ${tentativa}... Aguarde.`);
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
                     let response;
                     try {
@@ -92,10 +191,12 @@
                                 'Content-Type': 'application/json',
                                 'x-goog-api-key': apiKey
                             },
-                            body: JSON.stringify({ contents: [{ parts: [{ text: promptTexto }] }] })
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: promptTexto }] }],
+                                generationConfig: { responseMimeType: "application/json" }
+                            })
                         }, 30000);
                     } catch (e) {
-                        // sem resposta em 30s (ou falha de rede): vai para o próximo modelo
                         ultimoErro = `Gemini ${modelo}: sem resposta em 30s`;
                         break;
                     }
@@ -113,18 +214,17 @@
                     }
                     if (response.status === 404) break;
 
-                    // 400/403 etc.: chave ou pedido com problema, não adianta insistir
                     throw new Error(`Gemini (${response.status}): ${await response.text()}`);
                 }
             }
             throw new Error(`Todos os modelos do Gemini falharam. Último erro: ${ultimoErro}`);
         }
 
-        // Reserva: Groq (formato compatível com OpenAI)
-        async function chamarGroq(groqKey, promptTexto, resultadoDiv) {
+        // Reserva: Groq (formato compatível com OpenAI). Pede a resposta em JSON.
+        async function chamarGroq(groqKey, promptTexto, statusEl) {
             let ultimoErro = "";
             for (let tentativa = 1; tentativa <= 2; tentativa++) {
-                resultadoDiv.textContent = `Gemini indisponível. Usando Groq, tentativa ${tentativa}... Aguarde.`;
+                status(statusEl, `Usando Groq, tentativa ${tentativa}... Aguarde.`);
                 let response;
                 try {
                     response = await fetchComTimeout("https://api.groq.com/openai/v1/chat/completions", {
@@ -136,6 +236,7 @@
                         body: JSON.stringify({
                             model: "llama-3.3-70b-versatile",
                             messages: [{ role: "user", content: promptTexto }],
+                            response_format: { type: "json_object" },
                             temperature: 0.7
                         })
                     }, 30000);
@@ -161,6 +262,168 @@
             throw new Error(`O Groq também falhou. Último erro: ${ultimoErro}`);
         }
 
+        // Tenta o Gemini e, se falhar, cai no Groq (quando houver chave). Devolve o texto bruto (JSON).
+        async function chamarIA(promptTexto, statusEl) {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const groqKey = document.getElementById('groqKey').value.trim();
+
+            if (!apiKey && !groqKey) {
+                throw new Error("Cole pelo menos uma chave de API (Gemini ou Groq).");
+            }
+
+            let erroGemini = null;
+            if (apiKey) {
+                try {
+                    return await chamarGemini(apiKey, promptTexto, statusEl);
+                } catch (e) {
+                    erroGemini = e;
+                    if (!groqKey) throw e;
+                }
+            }
+
+            try {
+                return await chamarGroq(groqKey, promptTexto, statusEl);
+            } catch (e) {
+                const prefixo = erroGemini ? `${erroGemini.message}\n` : "";
+                throw new Error(prefixo + e.message);
+            }
+        }
+
+        // ---------- Prompts (a IA devolve JSON; as contagens são feitas pelo código) ----------
+        function promptTitulos(palavraChave, materia) {
+            return `Papel: Você é o editor de SEO do ES Hoje sugerindo títulos. Contexto: O título tem até ${LIMITE_TITULO} caracteres. Número que carrega peso de notícia pode abrir o título; número decorativo fica no meio ou no fim. Clickbait é permitido, com um limite único: o título nunca promete algo que o texto não entrega. Palavra-chave: ${palavraChave} Expectativa: Gere cinco opções de título para a matéria abaixo, cada uma com a palavra-chave. Formato: Responda somente com um objeto JSON válido, sem nenhum texto fora dele, neste formato: {"titulos": ["opção 1", "opção 2", "opção 3", "opção 4", "opção 5"], "mais_segura": 0}. Em "mais_segura", se o texto não tiver um fato forte para abrir o título, informe o número (de 1 a 5) da opção mais segura; caso contrário use 0. Não coloque numeração nem contagem de caracteres dentro dos títulos. Restrições: Nenhuma opção pode passar de ${LIMITE_TITULO} caracteres. Nenhuma pode prometer informação que não está no texto. Informações: ${materia}`;
+        }
+
+        function promptSeo(tituloEscolhido, materia) {
+            return `Papel: Você é o editor de SEO preenchendo os campos do Rank Math. Contexto: A meta descrição resume a matéria, contém a palavra-chave foco e tem cerca de ${ALVO_META_CARAC} caracteres (nunca mais que 155). O slug é curto, em português, sem palavras desnecessárias, com até ${LIMITE_SLUG} caracteres. Título escolhido: ${tituloEscolhido} Expectativa: A partir do texto abaixo, gere os campos: meta descrição, slug e palavra-chave foco. Formato: Responda somente com um objeto JSON válido, sem nenhum texto fora dele, neste formato: {"meta_descricao": "...", "slug": "...", "palavra_chave_foco": "...", "segunda_opcao_foco": ""}. Em "segunda_opcao_foco", se o texto tocar mais de um tema forte, escolha o foco mais forte pelo peso da matéria em "palavra_chave_foco" e coloque a segunda opção aqui; caso contrário deixe vazio. Restrições: A meta descrição não pode ser cópia do título. O slug não pode ter acento, caractere especial ou data. Informações: ${materia}`;
+        }
+
+        // ---------- Renderização: títulos ----------
+        function desenharTitulos() {
+            const div = document.getElementById('resultado');
+            div.innerHTML = "";
+
+            estado.titulos.forEach((titulo, i) => {
+                const tamanho = titulo.length;
+                const passou = tamanho > LIMITE_TITULO;
+
+                const linhaTexto = el("div", { className: "texto" }, titulo);
+                if (estado.segura === i + 1) {
+                    linhaTexto.append(el("span", { className: "selo", textContent: "mais segura" }));
+                }
+
+                const info = el("div", { className: "info" },
+                    el("span", { className: passou ? "ruim" : "ok", textContent: `${tamanho}/${LIMITE_TITULO} caracteres` })
+                );
+                if (passou) info.append(" — passou do limite");
+
+                const acoes = el("div", { className: "acoes" },
+                    botaoMini("Copiar", (b) => copiar(titulo, b)),
+                    botaoMini("Usar este", () => usarTitulo(titulo))
+                );
+                if (passou) acoes.append(botaoMini("Encurtar", (b) => encurtarTitulo(i, b)));
+
+                div.append(el("div", { className: "item" }, linhaTexto, info, acoes));
+            });
+        }
+
+        function usarTitulo(titulo) {
+            document.getElementById('tituloEscolhido').value = titulo;
+            gerar('seo');
+        }
+
+        async function encurtarTitulo(i, btn) {
+            btn.disabled = true;
+            btn.textContent = "Encurtando...";
+            try {
+                const prompt = `Reescreva o título abaixo para ter no máximo ${LIMITE_TITULO} caracteres contando os espaços, mantendo a palavra-chave "${estado.palavraChave}" e sem prometer nada além do que o título original já diz. Título: ${estado.titulos[i]} Responda somente com um objeto JSON válido neste formato: {"texto": "título reescrito"}.`;
+                const dados = lerJSON(await chamarIA(prompt, null));
+                const novo = String(dados.texto || "").trim();
+                if (!novo) throw new Error("Resposta vazia.");
+                estado.titulos[i] = novo;
+                desenharTitulos();
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = "Encurtar";
+                alert("Não foi possível encurtar: " + e.message);
+            }
+        }
+
+        // ---------- Renderização: SEO ----------
+        function itemSeo(rotulo, valor, infoNode, acoesNodes) {
+            const acoes = el("div", { className: "acoes" });
+            acoesNodes.forEach(a => acoes.append(a));
+            return el("div", { className: "item" },
+                el("div", { className: "rotulo", textContent: rotulo }),
+                el("div", { className: "texto", textContent: valor }),
+                infoNode,
+                acoes
+            );
+        }
+
+        function desenharSeo() {
+            const div = document.getElementById('resultado');
+            div.innerHTML = "";
+            const s = estado.seo;
+
+            // Meta descrição
+            const px = medirPx(s.meta);
+            const metaPassou = px > LIMITE_META_PX;
+            const infoMeta = el("div", { className: "info" },
+                el("span", { className: metaPassou ? "ruim" : "ok", textContent: `~${px}px de ${LIMITE_META_PX}px` }),
+                ` (estimativa) • ${s.meta.length} caracteres`
+            );
+            const acoesMeta = [botaoMini("Copiar", (b) => copiar(s.meta, b))];
+            if (metaPassou) acoesMeta.push(botaoMini("Encurtar", (b) => encurtarMeta(b)));
+            div.append(itemSeo("Meta descrição", s.meta, infoMeta, acoesMeta));
+
+            // Slug
+            const infoSlug = el("div", { className: "info" },
+                el("span", { className: s.slug.length <= LIMITE_SLUG && s.slug ? "ok" : "ruim", textContent: `${s.slug.length}/${LIMITE_SLUG} caracteres` }),
+                s.slugAjustado ? " • ajustado automaticamente (sem acento, sem caracteres especiais)" : ""
+            );
+            div.append(itemSeo("Slug", s.slug, infoSlug, [botaoMini("Copiar", (b) => copiar(s.slug, b))]));
+
+            // Palavra-chave foco
+            const textoFoco = s.segunda ? `${s.foco} (${s.segunda})` : s.foco;
+            div.append(itemSeo("Palavra-chave foco", textoFoco, el("div", { className: "info" }, ""),
+                [botaoMini("Copiar", (b) => copiar(s.foco, b))]));
+
+            // Copiar tudo
+            const tudo = `Meta descrição: ${s.meta}\nSlug: ${s.slug}\nPalavra-chave foco: ${s.foco}`;
+            div.append(el("div", { className: "rodape-resultado" }, botaoMini("Copiar tudo", (b) => copiar(tudo, b))));
+        }
+
+        async function encurtarMeta(btn) {
+            btn.disabled = true;
+            btn.textContent = "Encurtando...";
+            try {
+                const prompt = `Reescreva a meta descrição abaixo com no máximo 140 caracteres, mantendo a palavra-chave foco "${estado.seo.foco}" e o sentido original, sem inventar informações. Meta descrição: ${estado.seo.meta} Responda somente com um objeto JSON válido neste formato: {"texto": "meta descrição reescrita"}.`;
+                const dados = lerJSON(await chamarIA(prompt, null));
+                const novo = String(dados.texto || "").trim();
+                if (!novo) throw new Error("Resposta vazia.");
+                estado.seo.meta = novo;
+                desenharSeo();
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = "Encurtar";
+                alert("Não foi possível encurtar: " + e.message);
+            }
+        }
+
+        // ---------- Fluxo principal ----------
+        function limparTudo() {
+            if (!confirm("Limpar matéria, palavra-chave, título escolhido e resultado?")) return;
+            document.getElementById('materia').value = "";
+            document.getElementById('palavraChave').value = "";
+            document.getElementById('tituloEscolhido').value = "";
+            const r = document.getElementById('resultado');
+            r.innerHTML = "";
+            r.style.display = "none";
+            estado.titulos = [];
+            estado.seo = null;
+        }
+
         async function gerar(tipo) {
             const apiKey = document.getElementById('apiKey').value.trim();
             const groqKey = document.getElementById('groqKey').value.trim();
@@ -168,7 +431,6 @@
             const palavraChave = document.getElementById('palavraChave').value.trim();
             const tituloEscolhido = document.getElementById('tituloEscolhido').value.trim();
             const resultadoDiv = document.getElementById('resultado');
-            const botoes = document.querySelectorAll('button');
 
             if (!apiKey && !groqKey) {
                 alert("Cole pelo menos uma chave de API (Gemini ou Groq) nos campos superiores.");
@@ -185,49 +447,47 @@
 
             if (apiKey) localStorage.setItem('esHojeGeminiKey', apiKey);
             if (groqKey) localStorage.setItem('esHojeGroqKey', groqKey);
-            botoes.forEach(b => b.disabled = true);
+
+            setOcupado(true);
             resultadoDiv.style.display = 'block';
             resultadoDiv.textContent = "A processar matéria... Aguarde.";
 
-            let promptTexto = "";
-            if (tipo === 'titulo') {
-                promptTexto = `Papel: Você é o editor de SEO do ES Hoje sugerindo títulos. Contexto: O título tem até 60 caracteres. Número que carrega peso de notícia pode abrir o título; número decorativo fica no meio ou no fim. Clickbait é permitido, com um limite único: o título nunca promete algo que o texto não entrega. Palavra-chave: ${palavraChave} Expectativa: Gere cinco opções de título para a matéria abaixo, cada uma com a palavra-chave. Formato: Lista numerada, com a contagem de caracteres ao lado de cada opção. Nada além da lista. Restrições: Nenhuma opção pode passar de 60 caracteres. Nenhuma pode prometer informação que não está no texto. Esclarecimento: Se o texto não tiver um fato forte para abrir o título, devolva a lista mesmo assim e marque com um asterisco a opção mais segura. Informações: ${materia}`;
-            } else {
-                promptTexto = `Papel: Você é o editor de SEO preenchendo os campos do Rank Math. Contexto: A meta descrição resume a matéria, contém a palavra-chave foco e respeita o limite de caracteres do manual. O slug é curto, em português, sem palavras desnecessárias. Título escolhido: ${tituloEscolhido} Expectativa: A partir do texto abaixo, gere os três campos: meta descrição, slug, palavra-chave foco. Formato: Três linhas, cada uma rotulada (Meta descrição com 920 px/ Slug com 25 caracteres / Palavra-chave foco). Nada além disso. Restrições: A meta descrição não pode ser cópia do título. O slug não pode ter acento, caractere especial ou data. Esclarecimento: Se o texto tocar mais de um tema forte, escolha o foco mais forte pelo peso da matéria e sinalize a segunda opção entre parênteses na linha da palavra-chave. Informações: ${materia}`;
-            }
-
             try {
-                let texto = null;
-                let erroGemini = null;
+                const prompt = tipo === 'titulo'
+                    ? promptTitulos(palavraChave, materia)
+                    : promptSeo(tituloEscolhido, materia);
 
-                if (apiKey) {
-                    try {
-                        texto = await chamarGemini(apiKey, promptTexto, resultadoDiv);
-                    } catch (e) {
-                        erroGemini = e;
-                        if (!groqKey) throw e;
-                    }
+                const dados = lerJSON(await chamarIA(prompt, resultadoDiv));
+
+                if (tipo === 'titulo') {
+                    const lista = (Array.isArray(dados.titulos) ? dados.titulos : [])
+                        .map(t => String(t).replace(/^\s*\d+\s*[.)\-–]\s*/, "").replace(/\s*\(\d+\s*(carac\w*)?\)\s*$/i, "").trim())
+                        .filter(Boolean);
+                    if (!lista.length) throw new Error("A IA não devolveu nenhum título. Tente novamente.");
+                    estado.titulos = lista;
+                    estado.segura = Number(dados.mais_segura) || 0;
+                    estado.palavraChave = palavraChave;
+                    desenharTitulos();
+                } else {
+                    const slugOriginal = String(dados.slug || "").trim();
+                    let slug = limparSlug(slugOriginal);
+                    if (!slug) slug = limparSlug(tituloEscolhido);
+                    const meta = String(dados.meta_descricao || "").trim();
+                    if (!meta) throw new Error("A IA não devolveu a meta descrição. Tente novamente.");
+                    estado.seo = {
+                        meta,
+                        slug,
+                        slugAjustado: slug !== slugOriginal,
+                        foco: String(dados.palavra_chave_foco || palavraChave).trim(),
+                        segunda: String(dados.segunda_opcao_foco || "").trim()
+                    };
+                    desenharSeo();
                 }
-
-                if (texto === null) {
-                    if (!groqKey) throw erroGemini || new Error("Nenhuma chave disponível.");
-                    try {
-                        texto = await chamarGroq(groqKey, promptTexto, resultadoDiv);
-                    } catch (e) {
-                        const prefixo = erroGemini ? `${erroGemini.message}\n` : "";
-                        throw new Error(prefixo + e.message);
-                    }
-                }
-
-                resultadoDiv.textContent = texto;
             } catch (error) {
                 resultadoDiv.innerHTML = "";
-                const span = document.createElement("span");
-                span.style.color = "red";
-                span.textContent = `Falha na comunicação: ${error.message}`;
-                resultadoDiv.appendChild(span);
+                resultadoDiv.append(el("span", { className: "erro", textContent: `Falha na comunicação: ${error.message}` }));
             } finally {
-                botoes.forEach(b => b.disabled = false);
+                setOcupado(false);
             }
         }
     </script>
