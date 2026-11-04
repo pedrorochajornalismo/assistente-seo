@@ -35,6 +35,10 @@
         button.mini:disabled { background: #eee; color: #999; border-color: #ddd; }
         .erro { color: red; white-space: pre-wrap; }
         .rodape-resultado { margin-top: 6px; }
+        .check { font-size: 14px; margin: 4px 0; }
+        .check.ok { color: #1b7f3b; }
+        .check.atencao { color: #b26a00; }
+        .check.ruim { color: #c62828; }
     </style>
 </head>
 <body>
@@ -349,6 +353,92 @@
             }
         }
 
+        // ---------- Checklist do Rank Math (calculado no código, sem chamar a IA) ----------
+        function contarOcorrencias(texto, chave) {
+            if (!chave) return 0;
+            let n = 0, i = 0;
+            while ((i = texto.indexOf(chave, i)) !== -1) { n++; i += chave.length; }
+            return n;
+        }
+
+        function checklistRankMath(s) {
+            const kw = normalizar(s.foco).replace(/\s+/g, " ").trim();
+            if (!kw) return [];
+
+            const titulo = normalizar(s.titulo);
+            const meta = normalizar(s.meta);
+            const texto = normalizar(s.materia);
+            const itens = [];
+
+            // 1) Palavra-chave no título
+            const posTitulo = titulo.indexOf(kw);
+            if (posTitulo >= 0) {
+                itens.push({ nivel: "ok", texto: "A palavra-chave está no título." });
+                // 2) Perto do começo do título (aproximação: primeiro quarto do título)
+                if (posTitulo <= Math.floor(titulo.length * 0.25)) {
+                    itens.push({ nivel: "ok", texto: "A palavra-chave está no começo do título." });
+                } else {
+                    itens.push({ nivel: "atencao", texto: "A palavra-chave está no título, mas longe do começo. O Rank Math prefere no início." });
+                }
+            } else {
+                itens.push({ nivel: "ruim", texto: "A palavra-chave não aparece no título." });
+                itens.push({ nivel: "ruim", texto: "Sem palavra-chave no título, ela também não está no começo dele." });
+            }
+
+            // 3) Meta descrição
+            itens.push(meta.includes(kw)
+                ? { nivel: "ok", texto: "A palavra-chave está na meta descrição." }
+                : { nivel: "ruim", texto: "A palavra-chave não aparece na meta descrição." });
+
+            // 4) Slug (palavra-chave inteira ou só parte dela)
+            const kwSlug = kw.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+            const slug = normalizar(s.slug);
+            if (kwSlug && slug.includes(kwSlug)) {
+                itens.push({ nivel: "ok", texto: "A palavra-chave está no slug." });
+            } else {
+                const palavras = kw.split(/\s+/).filter(p => p.length >= 4);
+                const parcial = palavras.some(p => slug.includes(normalizar(p).replace(/[^a-z0-9]+/g, "")));
+                itens.push(parcial
+                    ? { nivel: "atencao", texto: `O slug tem só parte da palavra-chave (limite de ${LIMITE_SLUG} caracteres).` }
+                    : { nivel: "ruim", texto: "A palavra-chave não aparece no slug." });
+            }
+
+            // 5) Primeiros 10% do texto
+            const inicio = texto.slice(0, Math.ceil(texto.length * 0.1));
+            itens.push(inicio.includes(kw)
+                ? { nivel: "ok", texto: "A palavra-chave aparece no começo do texto da matéria (primeiros 10%)." }
+                : { nivel: "ruim", texto: "A palavra-chave não aparece no começo do texto (primeiros 10%). Vale citá-la no primeiro parágrafo." });
+
+            // 6) Presença e frequência no texto
+            const vezes = contarOcorrencias(texto, kw);
+            const palavrasTexto = texto.split(/\s+/).filter(Boolean).length;
+            const densidade = palavrasTexto ? (vezes * kw.split(" ").length / palavrasTexto * 100) : 0;
+            if (vezes === 0) {
+                itens.push({ nivel: "ruim", texto: "A palavra-chave não aparece no texto da matéria." });
+            } else {
+                itens.push({ nivel: "ok", texto: `A palavra-chave aparece ${vezes} ${vezes === 1 ? "vez" : "vezes"} no texto (densidade de ${densidade.toFixed(1).replace(".", ",")}%).` });
+            }
+
+            return itens;
+        }
+
+        function blocoChecklist(s) {
+            const itens = checklistRankMath(s);
+            const oks = itens.filter(i => i.nivel === "ok").length;
+            const box = el("div", { className: "item" },
+                el("div", { className: "rotulo", textContent: `Checklist do Rank Math (${oks}/${itens.length})` })
+            );
+            const simbolos = { ok: "✔", atencao: "⚠", ruim: "✖" };
+            itens.forEach(i => {
+                box.append(el("div", { className: "check " + i.nivel, textContent: `${simbolos[i.nivel]} ${i.texto}` }));
+            });
+            box.append(el("div", {
+                className: "info",
+                textContent: "Verificação por texto exato, sem diferenciar acentos nem maiúsculas. O Rank Math pode aceitar variações da palavra-chave."
+            }));
+            return box;
+        }
+
         // ---------- Renderização: SEO ----------
         function itemSeo(rotulo, valor, infoNode, acoesNodes) {
             const acoes = el("div", { className: "acoes" });
@@ -388,6 +478,9 @@
             const textoFoco = s.segunda ? `${s.foco} (${s.segunda})` : s.foco;
             div.append(itemSeo("Palavra-chave foco", textoFoco, el("div", { className: "info" }, ""),
                 [botaoMini("Copiar", (b) => copiar(s.foco, b))]));
+
+            // Checklist do Rank Math
+            div.append(blocoChecklist(s));
 
             // Copiar tudo
             const tudo = `Meta descrição: ${s.meta}\nSlug: ${s.slug}\nPalavra-chave foco: ${s.foco}`;
@@ -479,7 +572,9 @@
                         slug,
                         slugAjustado: slug !== slugOriginal,
                         foco: String(dados.palavra_chave_foco || palavraChave).trim(),
-                        segunda: String(dados.segunda_opcao_foco || "").trim()
+                        segunda: String(dados.segunda_opcao_foco || "").trim(),
+                        titulo: tituloEscolhido,
+                        materia: materia
                     };
                     desenharSeo();
                 }
