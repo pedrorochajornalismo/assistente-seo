@@ -8,6 +8,7 @@
         body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; color: #333; }
         .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h1 { text-align: center; color: #0056b3; font-size: 24px; margin-bottom: 20px; }
+        h2 { color: #0056b3; font-size: 16px; margin: 0 0 10px; }
         label { font-weight: bold; display: block; margin-top: 15px; font-size: 14px; }
         textarea, input[type="text"], input[type="password"] { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
         textarea { height: 180px; resize: vertical; }
@@ -16,10 +17,14 @@
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
         button.secundario { background-color: #6c757d; }
         button.secundario:hover { background-color: #565e64; }
+        button.cancelar { background-color: #c62828; }
+        button.cancelar:hover { background-color: #a31f1f; }
         #resultado { margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 4px; display: none; line-height: 1.5; font-size: 15px; }
+        #historico { margin-top: 25px; }
         .config-section { background: #e3f2fd; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #b6d4fe; }
         .config-section label:first-child { margin-top: 0; }
         .aviso { font-size: 12px; color: #555; margin-top: 5px; }
+        .aviso-kw { font-size: 12px; color: #b26a00; margin-top: 5px; }
 
         /* Resultados */
         .item { background: #fff; border: 1px solid #d5dbe1; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
@@ -34,6 +39,7 @@
         button.mini:hover { background: #d6e6f9; }
         button.mini:disabled { background: #eee; color: #999; border-color: #ddd; }
         .erro { color: red; white-space: pre-wrap; }
+        .cancelado { color: #6c757d; font-weight: bold; }
         .rodape-resultado { margin-top: 6px; }
         .check { font-size: 14px; margin: 4px 0; }
         .check.ok { color: #1b7f3b; }
@@ -49,7 +55,7 @@
             <label for="apiKey">Chave da API do Gemini:</label>
             <input type="password" id="apiKey" placeholder="Cole sua chave do Gemini aqui">
 
-            <label for="groqKey">Chave da API do Groq (opcional, usada se o Gemini falhar):</label>
+            <label for="groqKey">Chave da API do Groq (opcional; se preencher as duas, os dois respondem ao mesmo tempo e vale o mais rápido):</label>
             <input type="password" id="groqKey" placeholder="Cole sua chave do Groq (gsk_...) aqui">
 
             <div class="aviso">As chaves ficam salvas automaticamente no seu navegador. Cada colega só precisa colar na primeira vez que acessar.</div>
@@ -57,9 +63,11 @@
 
         <label for="materia">Texto da Matéria:</label>
         <textarea id="materia" placeholder="Cole o texto da matéria aqui..."></textarea>
+        <div class="aviso" id="contadorMateria">0 caracteres • 0 palavras</div>
 
         <label for="palavraChave">Palavra-chave (Obrigatório):</label>
         <input type="text" id="palavraChave" placeholder="Ex: acidente na terceira ponte">
+        <div class="aviso-kw" id="avisoKw"></div>
 
         <label for="tituloEscolhido">Título Escolhido (Preencha apenas se for gerar SEO):</label>
         <input type="text" id="tituloEscolhido" placeholder="Ex: Acidente na Terceira Ponte deixa trânsito lento">
@@ -67,8 +75,10 @@
         <button class="principal" id="btnTitulo" onclick="gerar('titulo')">Gerar Títulos (60 carac.)</button>
         <button class="principal" id="btnSeo" onclick="gerar('seo')">Gerar SEO (Rank Math)</button>
         <button class="principal secundario" id="btnLimpar" onclick="limparTudo()">Limpar tudo</button>
+        <button class="cancelar" id="btnCancelar" style="display:none" onclick="cancelar()">Cancelar geração</button>
 
         <div id="resultado"></div>
+        <div id="historico"></div>
     </div>
 
     <script>
@@ -77,15 +87,17 @@
         const LIMITE_META_PX = 920;     // pixels (estimativa)
         const ALVO_META_CARAC = 150;    // alvo em caracteres para pedir à IA
         const LIMITE_SLUG = 25;         // caracteres
+        const AVISO_MATERIA_LONGA = 20000; // caracteres
+        const MAX_HISTORICO = 10;
+        const CHAVE_HISTORICO = 'esHojeHistorico';
+        const CHAVE_RASCUNHO = 'esHojeRascunho';
 
-        const estado = { titulos: [], segura: 0, palavraChave: "", seo: null };
+        const estado = { titulos: [], segura: 0, palavraChave: "", seo: null, provedor: "", entradaId: null };
+        let controleGeracao = null;
 
-        document.addEventListener("DOMContentLoaded", () => {
-            const savedKey = localStorage.getItem('esHojeGeminiKey');
-            if (savedKey) document.getElementById('apiKey').value = savedKey;
-            const savedGroq = localStorage.getItem('esHojeGroqKey');
-            if (savedGroq) document.getElementById('groqKey').value = savedGroq;
-        });
+        class ErroCancelado extends Error {
+            constructor() { super("Geração cancelada."); this.name = "ErroCancelado"; }
+        }
 
         // ---------- Utilidades ----------
         const esperar = (ms) => new Promise(r => setTimeout(r, ms));
@@ -98,12 +110,12 @@
         }
 
         function normalizar(s) {
-            return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
         }
 
         // Slug: minúsculas, sem acento, sem caracteres especiais, sem ano, até LIMITE_SLUG
         function limparSlug(s) {
-            let t = normalizar(String(s))
+            let t = normalizar(s)
                 .replace(/\b(19|20)\d{2}\b/g, "")
                 .replace(/[^a-z0-9]+/g, "-")
                 .replace(/^-+|-+$/g, "");
@@ -157,15 +169,200 @@
 
         function setOcupado(sim) {
             document.querySelectorAll("button.principal").forEach(b => b.disabled = sim);
+            document.getElementById('btnCancelar').style.display = sim ? "inline-block" : "none";
         }
 
-        function status(statusEl, msg) {
-            if (statusEl) statusEl.textContent = msg;
+        // ---------- Contador da matéria e aviso de palavra-chave ----------
+        function atualizarContador() {
+            const t = document.getElementById('materia').value;
+            const palavras = t.trim() ? t.trim().split(/\s+/).length : 0;
+            const div = document.getElementById('contadorMateria');
+            div.textContent = `${t.length.toLocaleString('pt-BR')} caracteres • ${palavras.toLocaleString('pt-BR')} palavras`;
+            if (t.length > AVISO_MATERIA_LONGA) {
+                div.append(el("span", { className: "ruim", textContent: " — matéria muito longa: a resposta pode demorar ou estourar o limite gratuito." }));
+            }
+        }
+
+        function atualizarAvisoKw() {
+            const kw = normalizar(document.getElementById('palavraChave').value);
+            const texto = normalizar(document.getElementById('materia').value);
+            const div = document.getElementById('avisoKw');
+            if (kw && texto && !texto.includes(kw)) {
+                div.textContent = "⚠ Esta palavra-chave não aparece no texto da matéria (busca exata, sem diferenciar acento ou maiúsculas). Confira se está escrita como no texto.";
+            } else {
+                div.textContent = "";
+            }
+        }
+
+        // ---------- Rascunho dos campos (sobrevive a recarregar a página) ----------
+        let timerRascunho = null;
+        function salvarRascunho() {
+            clearTimeout(timerRascunho);
+            timerRascunho = setTimeout(() => {
+                try {
+                    localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify({
+                        materia: document.getElementById('materia').value,
+                        palavraChave: document.getElementById('palavraChave').value,
+                        tituloEscolhido: document.getElementById('tituloEscolhido').value
+                    }));
+                } catch (e) { /* sem espaço ou bloqueado: ignora */ }
+            }, 400);
+        }
+
+        function restaurarRascunho() {
+            try {
+                const r = JSON.parse(localStorage.getItem(CHAVE_RASCUNHO) || "null");
+                if (!r) return;
+                document.getElementById('materia').value = r.materia || "";
+                document.getElementById('palavraChave').value = r.palavraChave || "";
+                document.getElementById('tituloEscolhido').value = r.tituloEscolhido || "";
+            } catch (e) { /* ignora */ }
+        }
+
+        // ---------- Histórico (últimos 10 resultados) ----------
+        function lerHistorico() {
+            try {
+                const lista = JSON.parse(localStorage.getItem(CHAVE_HISTORICO) || "[]");
+                return Array.isArray(lista) ? lista : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function gravarHistorico(lista) {
+            const l = lista.slice(0, MAX_HISTORICO);
+            while (l.length) {
+                try {
+                    localStorage.setItem(CHAVE_HISTORICO, JSON.stringify(l));
+                    return;
+                } catch (e) {
+                    l.pop(); // sem espaço: descarta o mais antigo e tenta de novo
+                }
+            }
+            try { localStorage.removeItem(CHAVE_HISTORICO); } catch (e) { /* ignora */ }
+        }
+
+        function salvarEntrada(tipo, ctx) {
+            const entrada = {
+                id: Date.now(),
+                quando: new Date().toISOString(),
+                tipo,
+                palavraChave: ctx.palavraChave,
+                tituloEscolhido: ctx.tituloEscolhido,
+                materia: ctx.materia.slice(0, 20000),
+                provedor: estado.provedor
+            };
+            if (tipo === 'titulo') {
+                entrada.titulos = estado.titulos;
+                entrada.segura = estado.segura;
+            } else {
+                const { materia, ...resto } = estado.seo;
+                entrada.seo = resto;
+            }
+            gravarHistorico([entrada, ...lerHistorico()]);
+            estado.entradaId = entrada.id;
+            desenharHistorico();
+        }
+
+        // Atualiza a entrada atual (por exemplo, depois de "Encurtar")
+        function atualizarEntradaAtual() {
+            if (!estado.entradaId) return;
+            const lista = lerHistorico();
+            const e = lista.find(x => x.id === estado.entradaId);
+            if (!e) return;
+            if (e.tipo === 'titulo') {
+                e.titulos = estado.titulos;
+            } else if (estado.seo) {
+                const { materia, ...resto } = estado.seo;
+                e.seo = resto;
+            }
+            gravarHistorico(lista);
+            desenharHistorico();
+        }
+
+        function mostrarEntrada(e, preencherCampos) {
+            if (preencherCampos) {
+                document.getElementById('materia').value = e.materia || "";
+                document.getElementById('palavraChave').value = e.palavraChave || "";
+                document.getElementById('tituloEscolhido').value = e.tituloEscolhido || "";
+                atualizarContador();
+                atualizarAvisoKw();
+                salvarRascunho();
+            }
+            const div = document.getElementById('resultado');
+            div.style.display = 'block';
+            estado.provedor = e.provedor || "";
+            estado.entradaId = e.id;
+            if (e.tipo === 'titulo') {
+                estado.titulos = e.titulos || [];
+                estado.segura = e.segura || 0;
+                estado.palavraChave = e.palavraChave || "";
+                desenharTitulos();
+            } else if (e.seo) {
+                estado.seo = { ...e.seo, materia: e.materia || "" };
+                desenharSeo();
+            }
+        }
+
+        function abrirEntrada(id) {
+            const e = lerHistorico().find(x => x.id === id);
+            if (e) {
+                mostrarEntrada(e, true);
+                window.scrollTo({ top: document.getElementById('resultado').offsetTop - 20, behavior: "smooth" });
+            }
+        }
+
+        function excluirEntrada(id) {
+            gravarHistorico(lerHistorico().filter(x => x.id !== id));
+            if (estado.entradaId === id) estado.entradaId = null;
+            desenharHistorico();
+        }
+
+        function limparHistorico() {
+            if (!confirm("Apagar todo o histórico deste navegador?")) return;
+            try { localStorage.removeItem(CHAVE_HISTORICO); } catch (e) { /* ignora */ }
+            estado.entradaId = null;
+            desenharHistorico();
+        }
+
+        function desenharHistorico() {
+            const box = document.getElementById('historico');
+            box.innerHTML = "";
+            const lista = lerHistorico();
+            if (!lista.length) return;
+
+            box.append(el("h2", { textContent: `Histórico (últimos ${MAX_HISTORICO})` }));
+            lista.forEach(e => {
+                const data = new Date(e.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                const rotulo = e.tipo === 'titulo' ? 'Títulos' : 'SEO';
+                const item = el("div", { className: "item" },
+                    el("div", { className: "texto", textContent: `${data} • ${rotulo} • ${e.palavraChave || "(sem palavra-chave)"}` })
+                );
+                if (e.tipo === 'seo' && e.tituloEscolhido) {
+                    item.append(el("div", { className: "info", textContent: e.tituloEscolhido }));
+                }
+                if (e.provedor) {
+                    item.append(el("div", { className: "info", textContent: `Respondido por: ${e.provedor}` }));
+                }
+                item.append(el("div", { className: "acoes" },
+                    botaoMini("Abrir", () => abrirEntrada(e.id)),
+                    botaoMini("Excluir", () => excluirEntrada(e.id))
+                ));
+                box.append(item);
+            });
+            box.append(botaoMini("Limpar histórico", limparHistorico));
         }
 
         // ---------- Chamadas às IAs ----------
-        async function fetchComTimeout(url, opcoes, ms) {
+        function combinarSinais(sinalExterno, controle) {
+            if (!sinalExterno) return;
+            if (sinalExterno.aborted) controle.abort();
+            else sinalExterno.addEventListener("abort", () => controle.abort(), { once: true });
+        }
+
+        async function fetchComTimeout(url, opcoes, ms, sinalExterno) {
             const controle = new AbortController();
+            combinarSinais(sinalExterno, controle);
             const timer = setTimeout(() => controle.abort(), ms);
             try {
                 return await fetch(url, { ...opcoes, signal: controle.signal });
@@ -175,7 +372,8 @@
         }
 
         // Gemini: vários modelos, nova tentativa em 503/429. Pede a resposta em JSON.
-        async function chamarGemini(apiKey, promptTexto, statusEl) {
+        // Devolve { texto, provedor }.
+        async function chamarGemini(apiKey, promptTexto, reportar, sinal) {
             const modelos = [
                 "gemini-flash-latest",
                 "gemini-flash-lite-latest",
@@ -185,7 +383,8 @@
 
             for (const modelo of modelos) {
                 for (let tentativa = 1; tentativa <= 2; tentativa++) {
-                    status(statusEl, `Gemini (${modelo}), tentativa ${tentativa}... Aguarde.`);
+                    if (sinal && sinal.aborted) throw new ErroCancelado();
+                    reportar(`Gemini ${modelo}, tentativa ${tentativa}`);
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
                     let response;
                     try {
@@ -199,15 +398,16 @@
                                 contents: [{ parts: [{ text: promptTexto }] }],
                                 generationConfig: { responseMimeType: "application/json" }
                             })
-                        }, 30000);
+                        }, 30000, sinal);
                     } catch (e) {
+                        if (sinal && sinal.aborted) throw new ErroCancelado();
                         ultimoErro = `Gemini ${modelo}: sem resposta em 30s`;
                         break;
                     }
 
                     if (response.ok) {
                         const data = await response.json();
-                        return data.candidates[0].content.parts[0].text;
+                        return { texto: data.candidates[0].content.parts[0].text, provedor: `Gemini (${modelo})` };
                     }
 
                     ultimoErro = `Gemini ${modelo}: erro ${response.status}`;
@@ -224,11 +424,14 @@
             throw new Error(`Todos os modelos do Gemini falharam. Último erro: ${ultimoErro}`);
         }
 
-        // Reserva: Groq (formato compatível com OpenAI). Pede a resposta em JSON.
-        async function chamarGroq(groqKey, promptTexto, statusEl) {
+        // Groq (formato compatível com OpenAI). Pede a resposta em JSON.
+        // Devolve { texto, provedor }.
+        async function chamarGroq(groqKey, promptTexto, reportar, sinal) {
+            const modelo = "llama-3.3-70b-versatile";
             let ultimoErro = "";
             for (let tentativa = 1; tentativa <= 2; tentativa++) {
-                status(statusEl, `Usando Groq, tentativa ${tentativa}... Aguarde.`);
+                if (sinal && sinal.aborted) throw new ErroCancelado();
+                reportar(`Groq, tentativa ${tentativa}`);
                 let response;
                 try {
                     response = await fetchComTimeout("https://api.groq.com/openai/v1/chat/completions", {
@@ -238,13 +441,14 @@
                             'Authorization': `Bearer ${groqKey}`
                         },
                         body: JSON.stringify({
-                            model: "llama-3.3-70b-versatile",
+                            model: modelo,
                             messages: [{ role: "user", content: promptTexto }],
                             response_format: { type: "json_object" },
                             temperature: 0.7
                         })
-                    }, 30000);
+                    }, 30000, sinal);
                 } catch (e) {
+                    if (sinal && sinal.aborted) throw new ErroCancelado();
                     ultimoErro = e.name === 'AbortError'
                         ? "Groq: sem resposta em 30s"
                         : "Groq: falha de rede ou bloqueio do navegador (CORS)";
@@ -253,7 +457,7 @@
 
                 if (response.ok) {
                     const data = await response.json();
-                    return data.choices[0].message.content;
+                    return { texto: data.choices[0].message.content, provedor: `Groq (${modelo})` };
                 }
 
                 ultimoErro = `Groq: erro ${response.status}`;
@@ -266,8 +470,9 @@
             throw new Error(`O Groq também falhou. Último erro: ${ultimoErro}`);
         }
 
-        // Tenta o Gemini e, se falhar, cai no Groq (quando houver chave). Devolve o texto bruto (JSON).
-        async function chamarIA(promptTexto, statusEl) {
+        // Dispara Gemini e Groq ao mesmo tempo (quando há as duas chaves) e usa o que responder primeiro.
+        // Devolve { texto, provedor }.
+        async function chamarIA(promptTexto, statusEl, sinalExterno) {
             const apiKey = document.getElementById('apiKey').value.trim();
             const groqKey = document.getElementById('groqKey').value.trim();
 
@@ -275,21 +480,34 @@
                 throw new Error("Cole pelo menos uma chave de API (Gemini ou Groq).");
             }
 
-            let erroGemini = null;
-            if (apiKey) {
-                try {
-                    return await chamarGemini(apiKey, promptTexto, statusEl);
-                } catch (e) {
-                    erroGemini = e;
-                    if (!groqKey) throw e;
-                }
-            }
+            // Controle próprio: cancela quem perder a corrida (e também o cancelamento do usuário)
+            const controleCorrida = new AbortController();
+            combinarSinais(sinalExterno, controleCorrida);
+            const sinal = controleCorrida.signal;
+
+            const partes = {};
+            const reportarDe = (chave) => (msg) => {
+                partes[chave] = msg;
+                if (statusEl) statusEl.textContent = Object.values(partes).join(" • ") + "... Aguarde.";
+            };
+
+            const tarefas = [];
+            if (apiKey) tarefas.push(chamarGemini(apiKey, promptTexto, reportarDe("gemini"), sinal));
+            if (groqKey) tarefas.push(chamarGroq(groqKey, promptTexto, reportarDe("groq"), sinal));
 
             try {
-                return await chamarGroq(groqKey, promptTexto, statusEl);
+                const vencedor = await Promise.any(tarefas);
+                controleCorrida.abort(); // interrompe o que ainda estiver rodando
+                return vencedor;
             } catch (e) {
-                const prefixo = erroGemini ? `${erroGemini.message}\n` : "";
-                throw new Error(prefixo + e.message);
+                if (sinalExterno && sinalExterno.aborted) throw new ErroCancelado();
+                if (e instanceof AggregateError) {
+                    const mensagens = e.errors
+                        .filter(x => !(x instanceof ErroCancelado))
+                        .map(x => x.message);
+                    throw new Error(mensagens.join("\n") || "Falha ao chamar a IA.");
+                }
+                throw e;
             }
         }
 
@@ -303,6 +521,11 @@
         }
 
         // ---------- Renderização: títulos ----------
+        function rodapeProvedor() {
+            if (!estado.provedor) return null;
+            return el("div", { className: "info rodape-resultado", textContent: `Respondido por: ${estado.provedor}` });
+        }
+
         function desenharTitulos() {
             const div = document.getElementById('resultado');
             div.innerHTML = "";
@@ -329,10 +552,14 @@
 
                 div.append(el("div", { className: "item" }, linhaTexto, info, acoes));
             });
+
+            const rodape = rodapeProvedor();
+            if (rodape) div.append(rodape);
         }
 
         function usarTitulo(titulo) {
             document.getElementById('tituloEscolhido').value = titulo;
+            salvarRascunho();
             gerar('seo');
         }
 
@@ -341,11 +568,13 @@
             btn.textContent = "Encurtando...";
             try {
                 const prompt = `Reescreva o título abaixo para ter no máximo ${LIMITE_TITULO} caracteres contando os espaços, mantendo a palavra-chave "${estado.palavraChave}" e sem prometer nada além do que o título original já diz. Título: ${estado.titulos[i]} Responda somente com um objeto JSON válido neste formato: {"texto": "título reescrito"}.`;
-                const dados = lerJSON(await chamarIA(prompt, null));
+                const resposta = await chamarIA(prompt, null, null);
+                const dados = lerJSON(resposta.texto);
                 const novo = String(dados.texto || "").trim();
                 if (!novo) throw new Error("Resposta vazia.");
                 estado.titulos[i] = novo;
                 desenharTitulos();
+                atualizarEntradaAtual();
             } catch (e) {
                 btn.disabled = false;
                 btn.textContent = "Encurtar";
@@ -362,7 +591,7 @@
         }
 
         function checklistRankMath(s) {
-            const kw = normalizar(s.foco).replace(/\s+/g, " ").trim();
+            const kw = normalizar(s.foco);
             if (!kw) return [];
 
             const titulo = normalizar(s.titulo);
@@ -396,8 +625,8 @@
             if (kwSlug && slug.includes(kwSlug)) {
                 itens.push({ nivel: "ok", texto: "A palavra-chave está no slug." });
             } else {
-                const palavras = kw.split(/\s+/).filter(p => p.length >= 4);
-                const parcial = palavras.some(p => slug.includes(normalizar(p).replace(/[^a-z0-9]+/g, "")));
+                const palavras = kw.split(" ").filter(p => p.length >= 4);
+                const parcial = palavras.some(p => slug.includes(p.replace(/[^a-z0-9]+/g, "")));
                 itens.push(parcial
                     ? { nivel: "atencao", texto: `O slug tem só parte da palavra-chave (limite de ${LIMITE_SLUG} caracteres).` }
                     : { nivel: "ruim", texto: "A palavra-chave não aparece no slug." });
@@ -411,7 +640,7 @@
 
             // 6) Presença e frequência no texto
             const vezes = contarOcorrencias(texto, kw);
-            const palavrasTexto = texto.split(/\s+/).filter(Boolean).length;
+            const palavrasTexto = texto.split(" ").filter(Boolean).length;
             const densidade = palavrasTexto ? (vezes * kw.split(" ").length / palavrasTexto * 100) : 0;
             if (vezes === 0) {
                 itens.push({ nivel: "ruim", texto: "A palavra-chave não aparece no texto da matéria." });
@@ -485,6 +714,9 @@
             // Copiar tudo
             const tudo = `Meta descrição: ${s.meta}\nSlug: ${s.slug}\nPalavra-chave foco: ${s.foco}`;
             div.append(el("div", { className: "rodape-resultado" }, botaoMini("Copiar tudo", (b) => copiar(tudo, b))));
+
+            const rodape = rodapeProvedor();
+            if (rodape) div.append(rodape);
         }
 
         async function encurtarMeta(btn) {
@@ -492,11 +724,13 @@
             btn.textContent = "Encurtando...";
             try {
                 const prompt = `Reescreva a meta descrição abaixo com no máximo 140 caracteres, mantendo a palavra-chave foco "${estado.seo.foco}" e o sentido original, sem inventar informações. Meta descrição: ${estado.seo.meta} Responda somente com um objeto JSON válido neste formato: {"texto": "meta descrição reescrita"}.`;
-                const dados = lerJSON(await chamarIA(prompt, null));
+                const resposta = await chamarIA(prompt, null, null);
+                const dados = lerJSON(resposta.texto);
                 const novo = String(dados.texto || "").trim();
                 if (!novo) throw new Error("Resposta vazia.");
                 estado.seo.meta = novo;
                 desenharSeo();
+                atualizarEntradaAtual();
             } catch (e) {
                 btn.disabled = false;
                 btn.textContent = "Encurtar";
@@ -505,16 +739,25 @@
         }
 
         // ---------- Fluxo principal ----------
+        function cancelar() {
+            if (controleGeracao) controleGeracao.abort();
+        }
+
         function limparTudo() {
-            if (!confirm("Limpar matéria, palavra-chave, título escolhido e resultado?")) return;
+            if (!confirm("Limpar matéria, palavra-chave, título escolhido e resultado? (O histórico é mantido.)")) return;
             document.getElementById('materia').value = "";
             document.getElementById('palavraChave').value = "";
             document.getElementById('tituloEscolhido').value = "";
+            try { localStorage.removeItem(CHAVE_RASCUNHO); } catch (e) { /* ignora */ }
             const r = document.getElementById('resultado');
             r.innerHTML = "";
             r.style.display = "none";
             estado.titulos = [];
             estado.seo = null;
+            estado.provedor = "";
+            estado.entradaId = null;
+            atualizarContador();
+            atualizarAvisoKw();
         }
 
         async function gerar(tipo) {
@@ -541,6 +784,8 @@
             if (apiKey) localStorage.setItem('esHojeGeminiKey', apiKey);
             if (groqKey) localStorage.setItem('esHojeGroqKey', groqKey);
 
+            controleGeracao = new AbortController();
+            const sinal = controleGeracao.signal;
             setOcupado(true);
             resultadoDiv.style.display = 'block';
             resultadoDiv.textContent = "A processar matéria... Aguarde.";
@@ -550,7 +795,9 @@
                     ? promptTitulos(palavraChave, materia)
                     : promptSeo(tituloEscolhido, materia);
 
-                const dados = lerJSON(await chamarIA(prompt, resultadoDiv));
+                const resposta = await chamarIA(prompt, resultadoDiv, sinal);
+                const dados = lerJSON(resposta.texto);
+                estado.provedor = resposta.provedor;
 
                 if (tipo === 'titulo') {
                     const lista = (Array.isArray(dados.titulos) ? dados.titulos : [])
@@ -578,13 +825,45 @@
                     };
                     desenharSeo();
                 }
+
+                salvarEntrada(tipo, { materia, palavraChave, tituloEscolhido });
             } catch (error) {
                 resultadoDiv.innerHTML = "";
-                resultadoDiv.append(el("span", { className: "erro", textContent: `Falha na comunicação: ${error.message}` }));
+                if (error instanceof ErroCancelado || sinal.aborted) {
+                    resultadoDiv.append(el("span", { className: "cancelado", textContent: "Geração cancelada." }));
+                } else {
+                    resultadoDiv.append(el("span", { className: "erro", textContent: `Falha na comunicação: ${error.message}` }));
+                }
             } finally {
+                controleGeracao = null;
                 setOcupado(false);
             }
         }
+
+        // ---------- Inicialização ----------
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedKey = localStorage.getItem('esHojeGeminiKey');
+            if (savedKey) document.getElementById('apiKey').value = savedKey;
+            const savedGroq = localStorage.getItem('esHojeGroqKey');
+            if (savedGroq) document.getElementById('groqKey').value = savedGroq;
+
+            restaurarRascunho();
+            atualizarContador();
+            atualizarAvisoKw();
+
+            ['materia', 'palavraChave', 'tituloEscolhido'].forEach(id => {
+                document.getElementById(id).addEventListener('input', () => {
+                    salvarRascunho();
+                    if (id !== 'tituloEscolhido') atualizarAvisoKw();
+                    if (id === 'materia') atualizarContador();
+                });
+            });
+
+            // Reabre o último resultado, se houver
+            const lista = lerHistorico();
+            if (lista.length) mostrarEntrada(lista[0], false);
+            desenharHistorico();
+        });
     </script>
 </body>
 </html>
