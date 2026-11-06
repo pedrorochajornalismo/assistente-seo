@@ -54,11 +54,7 @@
         <div class="config-section">
             <label for="apiKey">Chave da API do Gemini:</label>
             <input type="password" id="apiKey" placeholder="Cole sua chave do Gemini aqui">
-
-            <label for="groqKey">Chave da API do Groq (opcional; se preencher as duas, os dois respondem ao mesmo tempo e vale o mais rápido):</label>
-            <input type="password" id="groqKey" placeholder="Cole sua chave do Groq (gsk_...) aqui">
-
-            <div class="aviso">As chaves ficam salvas automaticamente no seu navegador. Cada colega só precisa colar na primeira vez que acessar.</div>
+            <div class="aviso">A chave fica salva automaticamente no seu navegador. Cada colega só precisa colar na primeira vez que acessar.</div>
         </div>
 
         <label for="materia">Texto da Matéria:</label>
@@ -353,16 +349,13 @@
             box.append(botaoMini("Limpar histórico", limparHistorico));
         }
 
-        // ---------- Chamadas às IAs ----------
-        function combinarSinais(sinalExterno, controle) {
-            if (!sinalExterno) return;
-            if (sinalExterno.aborted) controle.abort();
-            else sinalExterno.addEventListener("abort", () => controle.abort(), { once: true });
-        }
-
+        // ---------- Chamada ao Gemini ----------
         async function fetchComTimeout(url, opcoes, ms, sinalExterno) {
             const controle = new AbortController();
-            combinarSinais(sinalExterno, controle);
+            if (sinalExterno) {
+                if (sinalExterno.aborted) controle.abort();
+                else sinalExterno.addEventListener("abort", () => controle.abort(), { once: true });
+            }
             const timer = setTimeout(() => controle.abort(), ms);
             try {
                 return await fetch(url, { ...opcoes, signal: controle.signal });
@@ -371,7 +364,7 @@
             }
         }
 
-        // Gemini: vários modelos, nova tentativa em 503/429. Pede a resposta em JSON.
+        // Vários modelos, nova tentativa em 503/429. Pede a resposta em JSON.
         // Devolve { texto, provedor }.
         async function chamarGemini(apiKey, promptTexto, reportar, sinal) {
             const modelos = [
@@ -424,91 +417,15 @@
             throw new Error(`Todos os modelos do Gemini falharam. Último erro: ${ultimoErro}`);
         }
 
-        // Groq (formato compatível com OpenAI). Pede a resposta em JSON.
         // Devolve { texto, provedor }.
-        async function chamarGroq(groqKey, promptTexto, reportar, sinal) {
-            const modelo = "llama-3.3-70b-versatile";
-            let ultimoErro = "";
-            for (let tentativa = 1; tentativa <= 2; tentativa++) {
-                if (sinal && sinal.aborted) throw new ErroCancelado();
-                reportar(`Groq, tentativa ${tentativa}`);
-                let response;
-                try {
-                    response = await fetchComTimeout("https://api.groq.com/openai/v1/chat/completions", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${groqKey}`
-                        },
-                        body: JSON.stringify({
-                            model: modelo,
-                            messages: [{ role: "user", content: promptTexto }],
-                            response_format: { type: "json_object" },
-                            temperature: 0.7
-                        })
-                    }, 30000, sinal);
-                } catch (e) {
-                    if (sinal && sinal.aborted) throw new ErroCancelado();
-                    ultimoErro = e.name === 'AbortError'
-                        ? "Groq: sem resposta em 30s"
-                        : "Groq: falha de rede ou bloqueio do navegador (CORS)";
-                    continue;
-                }
-
-                if (response.ok) {
-                    const data = await response.json();
-                    return { texto: data.choices[0].message.content, provedor: `Groq (${modelo})` };
-                }
-
-                ultimoErro = `Groq: erro ${response.status}`;
-                if (response.status === 503 || response.status === 429) {
-                    await esperar(2000 * tentativa);
-                    continue;
-                }
-                throw new Error(`Groq (${response.status}): ${await response.text()}`);
-            }
-            throw new Error(`O Groq também falhou. Último erro: ${ultimoErro}`);
-        }
-
-        // Dispara Gemini e Groq ao mesmo tempo (quando há as duas chaves) e usa o que responder primeiro.
-        // Devolve { texto, provedor }.
-        async function chamarIA(promptTexto, statusEl, sinalExterno) {
+        async function chamarIA(promptTexto, statusEl, sinal) {
             const apiKey = document.getElementById('apiKey').value.trim();
-            const groqKey = document.getElementById('groqKey').value.trim();
+            if (!apiKey) throw new Error("Cole a chave da API do Gemini.");
 
-            if (!apiKey && !groqKey) {
-                throw new Error("Cole pelo menos uma chave de API (Gemini ou Groq).");
-            }
-
-            // Controle próprio: cancela quem perder a corrida (e também o cancelamento do usuário)
-            const controleCorrida = new AbortController();
-            combinarSinais(sinalExterno, controleCorrida);
-            const sinal = controleCorrida.signal;
-
-            const partes = {};
-            const reportarDe = (chave) => (msg) => {
-                partes[chave] = msg;
-                if (statusEl) statusEl.textContent = Object.values(partes).join(" • ") + "... Aguarde.";
+            const reportar = (msg) => {
+                if (statusEl) statusEl.textContent = `${msg}... Aguarde.`;
             };
-
-            const tarefas = [];
-            if (apiKey) tarefas.push(chamarGemini(apiKey, promptTexto, reportarDe("gemini"), sinal));
-            if (groqKey) tarefas.push(chamarGroq(groqKey, promptTexto, reportarDe("groq"), sinal));
-
-            try {
-                const vencedor = await Promise.any(tarefas);
-                controleCorrida.abort(); // interrompe o que ainda estiver rodando
-                return vencedor;
-            } catch (e) {
-                if (sinalExterno && sinalExterno.aborted) throw new ErroCancelado();
-                if (e instanceof AggregateError) {
-                    const mensagens = e.errors
-                        .filter(x => !(x instanceof ErroCancelado))
-                        .map(x => x.message);
-                    throw new Error(mensagens.join("\n") || "Falha ao chamar a IA.");
-                }
-                throw e;
-            }
+            return await chamarGemini(apiKey, promptTexto, reportar, sinal);
         }
 
         // ---------- Prompts (a IA devolve JSON; as contagens são feitas pelo código) ----------
@@ -762,14 +679,13 @@
 
         async function gerar(tipo) {
             const apiKey = document.getElementById('apiKey').value.trim();
-            const groqKey = document.getElementById('groqKey').value.trim();
             const materia = document.getElementById('materia').value.trim();
             const palavraChave = document.getElementById('palavraChave').value.trim();
             const tituloEscolhido = document.getElementById('tituloEscolhido').value.trim();
             const resultadoDiv = document.getElementById('resultado');
 
-            if (!apiKey && !groqKey) {
-                alert("Cole pelo menos uma chave de API (Gemini ou Groq) nos campos superiores.");
+            if (!apiKey) {
+                alert("Por favor, cole a Chave da API do Gemini no campo superior.");
                 return;
             }
             if (!materia || !palavraChave) {
@@ -781,8 +697,7 @@
                 return;
             }
 
-            if (apiKey) localStorage.setItem('esHojeGeminiKey', apiKey);
-            if (groqKey) localStorage.setItem('esHojeGroqKey', groqKey);
+            localStorage.setItem('esHojeGeminiKey', apiKey);
 
             controleGeracao = new AbortController();
             const sinal = controleGeracao.signal;
@@ -844,8 +759,8 @@
         document.addEventListener("DOMContentLoaded", () => {
             const savedKey = localStorage.getItem('esHojeGeminiKey');
             if (savedKey) document.getElementById('apiKey').value = savedKey;
-            const savedGroq = localStorage.getItem('esHojeGroqKey');
-            if (savedGroq) document.getElementById('groqKey').value = savedGroq;
+            // A chave do Groq (de versões anteriores) não é mais usada: remove do navegador
+            try { localStorage.removeItem('esHojeGroqKey'); } catch (e) { /* ignora */ }
 
             restaurarRascunho();
             atualizarContador();
