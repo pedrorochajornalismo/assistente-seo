@@ -4,78 +4,295 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ES Hoje - Assistente de SEO e Títulos</title>
+    <script>
+        // Aplica o tema salvo antes de desenhar a página (evita "piscar")
+        try {
+            const t = localStorage.getItem('esHojeTema');
+            if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+        } catch (e) { /* sem armazenamento: segue o tema do sistema */ }
+    </script>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #0056b3; font-size: 24px; margin-bottom: 20px; }
-        h2 { color: #0056b3; font-size: 16px; margin: 0 0 10px; }
-        label { font-weight: bold; display: block; margin-top: 15px; font-size: 14px; }
-        textarea, input[type="text"], input[type="password"] { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
-        textarea { height: 180px; resize: vertical; }
-        button { background-color: #0056b3; color: white; border: none; padding: 12px 15px; margin-top: 15px; cursor: pointer; border-radius: 4px; font-size: 14px; font-weight: bold; margin-right: 10px; }
-        button:hover { background-color: #004494; }
-        button:disabled { background-color: #cccccc; cursor: not-allowed; }
-        button.secundario { background-color: #6c757d; }
-        button.secundario:hover { background-color: #565e64; }
-        button.cancelar { background-color: #c62828; }
-        button.cancelar:hover { background-color: #a31f1f; }
-        #resultado { margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 4px; display: none; line-height: 1.5; font-size: 15px; }
-        #historico { margin-top: 25px; }
-        .config-section { background: #e3f2fd; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #b6d4fe; }
-        .config-section label:first-child { margin-top: 0; }
-        .aviso { font-size: 12px; color: #555; margin-top: 5px; }
-        .aviso-kw { font-size: 12px; color: #b26a00; margin-top: 5px; }
+        /* ---------- Paleta ES Hoje ----------
+           #038C8C verde-azulado | #9FBFBC verde-névoa | #BF681B laranja queimado
+           #D97652 terracota     | #8C403A tijolo
+           Versões mais escuras são usadas onde há texto branco ou texto sobre fundo claro (contraste). */
+        :root {
+            color-scheme: light;
+            --teal: #038C8C; --mist: #9FBFBC; --orange: #BF681B; --terra: #D97652; --brick: #8C403A;
 
-        /* Resultados */
-        .item { background: #fff; border: 1px solid #d5dbe1; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
-        .item .texto { font-size: 15px; word-break: break-word; }
-        .item .info { font-size: 12px; color: #555; margin-top: 4px; }
-        .item .rotulo { font-size: 12px; font-weight: bold; color: #0056b3; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 4px; }
-        .ok { color: #1b7f3b; font-weight: bold; }
-        .ruim { color: #c62828; font-weight: bold; }
-        .selo { display: inline-block; background: #fff3cd; color: #7a5b00; border: 1px solid #ffe08a; border-radius: 10px; font-size: 11px; padding: 1px 8px; margin-left: 6px; vertical-align: middle; }
-        .acoes { margin-top: 8px; }
-        button.mini { background: #e9f1fb; color: #0056b3; border: 1px solid #b6d4fe; padding: 4px 10px; margin: 0 6px 0 0; font-size: 12px; font-weight: bold; }
-        button.mini:hover { background: #d6e6f9; }
-        button.mini:disabled { background: #eee; color: #999; border-color: #ddd; }
-        .erro { color: red; white-space: pre-wrap; }
-        .cancelado { color: #6c757d; font-weight: bold; }
-        .rodape-resultado { margin-top: 6px; }
-        .check { font-size: 14px; margin: 4px 0; }
-        .check.ok { color: #1b7f3b; }
-        .check.atencao { color: #b26a00; }
-        .check.ruim { color: #c62828; }
+            --bg: #F1F6F5; --surface: #FFFFFF; --surface-2: #E7F0EE; --border: #CADBD8;
+            --text: #1B2F2E; --muted: #4C6664;
+
+            --btn: #026B6B; --btn-hover: #025858;
+            --btn2: #A85A14; --btn2-hover: #8F4A0E;
+
+            --ok: #026B6B;   --ok-bg: #DDEFED;
+            --warn: #9A4F0F; --warn-bg: #FBEADB;
+            --bad: #8C403A;  --bad-bg: #F6E5E2;
+
+            --meter-ok: #038C8C; --meter-warn: #BF681B; --meter-bad: #8C403A;
+            --chip-bg: #F8E0D5; --chip-text: #7A3A1C;
+            --header-bg: linear-gradient(135deg, #038C8C 0%, #026B6B 100%);
+            --shadow: 0 1px 2px rgba(20,50,50,.06), 0 6px 18px rgba(20,50,50,.07);
+            --focus: #BF681B;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                color-scheme: dark;
+                --bg: #0E1B1B; --surface: #152626; --surface-2: #1C3232; --border: #2A4543;
+                --text: #E3EEEC; --muted: #9FBFBC;
+                --btn: #027777; --btn-hover: #038C8C; --btn2: #A85A14; --btn2-hover: #BF681B;
+                --ok: #6FD0C8; --ok-bg: #12393A; --warn: #EBA470; --warn-bg: #392818; --bad: #EE9B93; --bad-bg: #3A2322;
+                --meter-ok: #2FB3B0; --meter-warn: #D97652; --meter-bad: #C0605A;
+                --chip-bg: #4A2C22; --chip-text: #F2B79F;
+                --header-bg: linear-gradient(135deg, #026B6B 0%, #0C4A4A 100%);
+                --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
+                --focus: #D97652;
+            }
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #0E1B1B; --surface: #152626; --surface-2: #1C3232; --border: #2A4543;
+            --text: #E3EEEC; --muted: #9FBFBC;
+            --btn: #027777; --btn-hover: #038C8C; --btn2: #A85A14; --btn2-hover: #BF681B;
+            --ok: #6FD0C8; --ok-bg: #12393A; --warn: #EBA470; --warn-bg: #392818; --bad: #EE9B93; --bad-bg: #3A2322;
+            --meter-ok: #2FB3B0; --meter-warn: #D97652; --meter-bad: #C0605A;
+            --chip-bg: #4A2C22; --chip-text: #F2B79F;
+            --header-bg: linear-gradient(135deg, #026B6B 0%, #0C4A4A 100%);
+            --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
+            --focus: #D97652;
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+        [hidden] { display: none !important; }
+        :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+        /* ---------- Cabeçalho ---------- */
+        .topo { background: var(--header-bg); color: #fff; }
+        .topo-in { max-width: 1180px; margin: 0 auto; padding: 18px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .marca { display: flex; align-items: center; gap: 12px; }
+        .logo { position: relative; width: 44px; height: 44px; border-radius: 12px; background: #fff; color: #026B6B; display: grid; place-items: center; font-weight: 800; font-size: 18px; letter-spacing: -.02em; }
+        .logo::after { content: ""; position: absolute; right: -4px; top: -4px; width: 12px; height: 12px; border-radius: 50%; background: var(--terra); border: 2px solid #038C8C; }
+        .marca h1 { margin: 0; font-size: 20px; line-height: 1.2; }
+        .marca p { margin: 0; font-size: 13px; opacity: .9; }
+        .topo-acoes { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-topo { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 10px; padding: 8px 14px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 40px; }
+        .btn-topo:hover { background: rgba(255,255,255,.26); }
+        .faixa { height: 4px; background: linear-gradient(90deg, var(--orange), var(--terra), var(--brick)); }
+
+        /* ---------- Layout ---------- */
+        .layout { max-width: 1180px; margin: 24px auto 0; padding: 0 24px 56px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 24px; align-items: start; }
+        @media (max-width: 900px) { .layout { grid-template-columns: 1fr; padding: 0 16px 48px; margin-top: 16px; } .topo-in { padding: 16px; } }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+        .saida > .card, .saida > .status, .saida > .banner { margin-bottom: 16px; }
+        .card h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+        .card h2::before { content: ""; width: 4px; height: 16px; border-radius: 4px; background: var(--teal); }
+        .card.seo h2::before { background: var(--orange); }
+
+        label { display: block; font-weight: 600; font-size: 14px; margin: 16px 0 6px; }
+        textarea, input[type="text"], input[type="password"] { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; }
+        textarea { height: 220px; resize: vertical; }
+        textarea:focus, input:focus { border-color: var(--teal); }
+        ::placeholder { color: var(--muted); opacity: .8; }
+        .hint { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+        .hint.alerta { color: var(--warn); font-weight: 600; }
+
+        /* Chave da API */
+        .config { border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+        .config summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; font-weight: 700; font-size: 14px; }
+        .config summary::-webkit-details-marker { display: none; }
+        .config-body { padding: 0 14px 14px; }
+        .config-body input { margin-top: 4px; }
+        .pill { font-size: 12px; padding: 2px 10px; border-radius: 99px; font-weight: 700; }
+        .pill.ok { background: var(--ok-bg); color: var(--ok); }
+        .pill.warn { background: var(--warn-bg); color: var(--warn); }
+
+        /* Botões */
+        .botoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+        .btn { min-height: 44px; border-radius: 10px; border: 1px solid transparent; padding: 10px 16px; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .btn .sub { font-weight: 500; font-size: 12px; opacity: .9; }
+        .btn-primario { background: var(--btn); color: #fff; } .btn-primario:hover { background: var(--btn-hover); }
+        .btn-seo { background: var(--btn2); color: #fff; } .btn-seo:hover { background: var(--btn2-hover); }
+        .btn-fantasma { background: transparent; border-color: var(--border); color: var(--text); } .btn-fantasma:hover { background: var(--surface-2); }
+        .btn:disabled, .mini:disabled { opacity: .55; cursor: not-allowed; }
+        .atalho { font-size: 12px; color: var(--muted); margin-top: 12px; }
+        kbd { font: inherit; font-size: 11.5px; padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface-2); }
+
+        .mini { min-height: 32px; padding: 4px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .mini:hover { border-color: var(--teal); }
+        .mini.destaque { background: var(--btn); color: #fff; border-color: transparent; } .mini.destaque:hover { background: var(--btn-hover); }
+        .mini.aviso { background: var(--warn-bg); color: var(--warn); border-color: var(--orange); }
+        .acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+        /* Status */
+        .status { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+        .status .texto { flex: 1; white-space: pre-wrap; font-size: 14px; }
+        .status.erro { background: var(--bad-bg); border-color: var(--brick); }
+        .status.erro .texto { color: var(--bad); font-weight: 600; }
+        .status.erro .spin, .status.neutro .spin { display: none; }
+        .spin { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--surface-2); border-top-color: var(--teal); animation: gira .8s linear infinite; }
+        @keyframes gira { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.5s; } .toast { animation: none; } }
+
+        .banner { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--orange); border-radius: 12px; padding: 10px 14px; font-size: 14px; font-weight: 600; }
+
+        .vazio { text-align: center; padding: 36px 22px; border: 2px dashed var(--border); border-radius: 16px; color: var(--muted); }
+        .vazio strong { display: block; color: var(--text); font-size: 17px; margin-bottom: 6px; }
+        .vazio ol { text-align: left; display: inline-block; margin: 12px 0 0; padding-left: 20px; }
+
+        /* Títulos */
+        .opcao { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; padding: 16px 0; border-top: 1px solid var(--border); }
+        .opcao:first-child { border-top: 0; padding-top: 4px; }
+        .num { width: 30px; height: 30px; border-radius: 50%; background: var(--ok-bg); color: var(--ok); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+        .titulo-txt { font-family: Georgia, "Times New Roman", serif; font-size: 18px; font-weight: 700; line-height: 1.3; word-break: break-word; }
+        .selo { display: inline-block; font-family: system-ui, sans-serif; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 99px; background: var(--chip-bg); color: var(--chip-text); margin-left: 8px; vertical-align: middle; }
+
+        /* Medidores */
+        .mrow { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+        .meter { flex: 1 1 150px; height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+        .meter i { display: block; height: 100%; border-radius: 99px; background: var(--meter-ok); transition: width .3s; }
+        .meter.warn i { background: var(--meter-warn); }
+        .meter.bad i { background: var(--meter-bad); }
+        .mlabel { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+        .mlabel.ok { color: var(--ok); } .mlabel.warn { color: var(--warn); } .mlabel.bad { color: var(--bad); }
+
+        /* SEO */
+        .campo { padding: 16px 0; border-top: 1px solid var(--border); }
+        .campo:first-of-type { border-top: 0; padding-top: 4px; }
+        .campo .rot { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+        .campo .val { margin-top: 4px; word-break: break-word; }
+        .campo .val.slug { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; background: var(--surface-2); padding: 3px 9px; border-radius: 6px; }
+
+        .check-head { display: flex; align-items: center; gap: 14px; }
+        .check-head .rot { margin: 0; }
+        .ring { --p: 0; flex: none; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--meter-ok) calc(var(--p) * 1%), var(--surface-2) 0); }
+        .ring.warn { background: conic-gradient(var(--meter-warn) calc(var(--p) * 1%), var(--surface-2) 0); }
+        .ring.bad { background: conic-gradient(var(--meter-bad) calc(var(--p) * 1%), var(--surface-2) 0); }
+        .ring span { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+        .check-list { list-style: none; padding: 0; margin: 12px 0 0; }
+        .check-list li { display: flex; gap: 10px; padding: 6px 0; font-size: 14px; }
+        .ico { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+        .ico.ok { background: var(--ok-bg); color: var(--ok); }
+        .ico.atencao { background: var(--warn-bg); color: var(--warn); }
+        .ico.ruim { background: var(--bad-bg); color: var(--bad); }
+        .nota { font-size: 12px; color: var(--muted); margin-top: 8px; }
+        .chip { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 99px; background: var(--surface-2); color: var(--muted); margin-top: 6px; }
+        .rodape-card { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+        /* Histórico */
+        .hist-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-top: 1px solid var(--border); }
+        .hist-item:first-of-type { border-top: 0; }
+        .hist-info { min-width: 0; }
+        .hist-tit { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hist-sub { font-size: 12px; color: var(--muted); }
+        .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 99px; margin-right: 6px; background: var(--ok-bg); color: var(--ok); }
+        .tag.seo { background: var(--warn-bg); color: var(--warn); }
+        .hist-acoes { display: flex; gap: 6px; flex: none; }
+
+        /* Avisos rápidos */
+        #toasts { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 50; width: min(92vw, 420px); pointer-events: none; }
+        .toast { background: var(--text); color: var(--bg); padding: 11px 14px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 26px rgba(0,0,0,.28); border-left: 5px solid var(--teal); animation: sobe .2s ease; }
+        .toast.erro { border-left-color: var(--terra); }
+        @keyframes sobe { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>ES Hoje - Assistente de SEO</h1>
-
-        <div class="config-section">
-            <label for="apiKey">Chave da API do Gemini:</label>
-            <input type="password" id="apiKey" placeholder="Cole sua chave do Gemini aqui">
-            <div class="aviso">A chave fica salva automaticamente no seu navegador. Cada colega só precisa colar na primeira vez que acessar.</div>
+    <header>
+        <div class="topo">
+            <div class="topo-in">
+                <div class="marca">
+                    <div class="logo" aria-hidden="true">ES</div>
+                    <div>
+                        <h1>ES Hoje</h1>
+                        <p>Assistente de SEO e títulos</p>
+                    </div>
+                </div>
+                <div class="topo-acoes">
+                    <button type="button" class="btn-topo" id="btnExemplo">Ver exemplo</button>
+                    <button type="button" class="btn-topo" id="btnTema" aria-label="Alternar entre modo claro e escuro">Modo escuro</button>
+                </div>
+            </div>
         </div>
+        <div class="faixa"></div>
+    </header>
 
-        <label for="materia">Texto da Matéria:</label>
-        <textarea id="materia" placeholder="Cole o texto da matéria aqui..."></textarea>
-        <div class="aviso" id="contadorMateria">0 caracteres • 0 palavras</div>
+    <main class="layout">
+        <!-- ============ Coluna da esquerda: entrada ============ -->
+        <section class="card entrada" aria-label="Dados da matéria">
+            <h2>Matéria</h2>
 
-        <label for="palavraChave">Palavra-chave (Obrigatório):</label>
-        <input type="text" id="palavraChave" placeholder="Ex: acidente na terceira ponte">
-        <div class="aviso-kw" id="avisoKw"></div>
+            <details class="config" id="configBox">
+                <summary>
+                    <span>Chave da API do Gemini</span>
+                    <span class="pill warn" id="chaveStatus">não configurada</span>
+                </summary>
+                <div class="config-body">
+                    <input type="password" id="apiKey" placeholder="Cole sua chave do Gemini aqui" autocomplete="off" aria-label="Chave da API do Gemini">
+                    <div class="hint">A chave fica salva automaticamente no seu navegador. Cada colega só precisa colar na primeira vez que acessar.</div>
+                </div>
+            </details>
 
-        <label for="tituloEscolhido">Título Escolhido (Preencha apenas se for gerar SEO):</label>
-        <input type="text" id="tituloEscolhido" placeholder="Ex: Acidente na Terceira Ponte deixa trânsito lento">
+            <label for="materia">Texto da matéria</label>
+            <textarea id="materia" placeholder="Cole o texto da matéria aqui..."></textarea>
+            <div class="hint" id="contadorMateria">0 caracteres • 0 palavras</div>
 
-        <button class="principal" id="btnTitulo" onclick="gerar('titulo')">Gerar Títulos (60 carac.)</button>
-        <button class="principal" id="btnSeo" onclick="gerar('seo')">Gerar SEO (Rank Math)</button>
-        <button class="principal secundario" id="btnLimpar" onclick="limparTudo()">Limpar tudo</button>
-        <button class="cancelar" id="btnCancelar" style="display:none" onclick="cancelar()">Cancelar geração</button>
+            <label for="palavraChave">Palavra-chave (obrigatório)</label>
+            <input type="text" id="palavraChave" placeholder="Ex: acidente na terceira ponte">
+            <div class="hint alerta" id="avisoKw" role="status"></div>
 
-        <div id="resultado"></div>
-        <div id="historico"></div>
-    </div>
+            <label for="tituloEscolhido">Título escolhido <span class="hint" style="display:inline">(só para gerar o SEO)</span></label>
+            <input type="text" id="tituloEscolhido" placeholder="Ex: Acidente na Terceira Ponte deixa trânsito lento">
+
+            <div class="botoes">
+                <button type="button" class="btn btn-primario" id="btnTitulo">Gerar títulos <span class="sub">60 carac.</span></button>
+                <button type="button" class="btn btn-seo" id="btnSeo">Gerar SEO <span class="sub">Rank Math</span></button>
+                <button type="button" class="btn btn-fantasma" id="btnLimpar">Limpar tudo</button>
+            </div>
+            <div class="atalho"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> gera os títulos. Dentro do campo "Título escolhido", gera o SEO.</div>
+        </section>
+
+        <!-- ============ Coluna da direita: resultados ============ -->
+        <section class="saida" aria-label="Resultados">
+            <div class="status" id="status" hidden role="status" aria-live="polite">
+                <div class="spin" aria-hidden="true"></div>
+                <div class="texto" id="statusTexto"></div>
+                <button type="button" class="mini aviso" id="btnCancelar">Cancelar</button>
+            </div>
+
+            <div class="banner" id="demoBanner" hidden>Exemplo com dados fictícios, só para mostrar o visual. Nada disto foi gerado pela IA nem salvo no histórico.</div>
+
+            <div class="vazio" id="vazio">
+                <strong>Os resultados aparecem aqui</strong>
+                Cole a matéria e a palavra-chave, depois:
+                <ol>
+                    <li>Gere as opções de título.</li>
+                    <li>Escolha uma com "Usar este e gerar SEO".</li>
+                    <li>Copie meta descrição, slug e palavra-chave foco.</li>
+                </ol>
+            </div>
+
+            <article class="card" id="cardTitulos" hidden>
+                <h2>Títulos</h2>
+                <div id="listaTitulos"></div>
+                <div class="chip" id="provTitulos" hidden></div>
+            </article>
+
+            <article class="card seo" id="cardSeo" hidden>
+                <h2>SEO (Rank Math)</h2>
+                <div id="conteudoSeo"></div>
+            </article>
+
+            <section class="card" id="cardHistorico" hidden>
+                <h2 id="tituloHistorico">Histórico</h2>
+                <div id="listaHistorico"></div>
+                <div class="acoes"><button type="button" class="mini" id="btnLimparHistorico">Limpar histórico</button></div>
+            </section>
+        </section>
+    </main>
+
+    <div id="toasts" aria-live="polite"></div>
 
     <script>
         // ---------- Limites (a conferência é feita aqui no código, não pela IA) ----------
@@ -87,8 +304,12 @@
         const MAX_HISTORICO = 10;
         const CHAVE_HISTORICO = 'esHojeHistorico';
         const CHAVE_RASCUNHO = 'esHojeRascunho';
+        const CHAVE_TEMA = 'esHojeTema';
 
-        const estado = { titulos: [], segura: 0, palavraChave: "", seo: null, provedor: "", entradaId: null };
+        const estado = {
+            titulos: [], segura: 0, palavraChave: "", provTitulos: "", entradaTitulosId: null,
+            seo: null, provSeo: "", entradaSeoId: null, demo: false
+        };
         let controleGeracao = null;
 
         class ErroCancelado extends Error {
@@ -96,6 +317,7 @@
         }
 
         // ---------- Utilidades ----------
+        const $ = (id) => document.getElementById(id);
         const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 
         function el(tag, props = {}, ...filhos) {
@@ -106,7 +328,7 @@
         }
 
         function normalizar(s) {
-            return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+            return String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
         }
 
         // Slug: minúsculas, sem acento, sem caracteres especiais, sem ano, até LIMITE_SLUG
@@ -143,6 +365,12 @@
             throw new Error("A IA devolveu uma resposta fora do formato esperado. Tente novamente.");
         }
 
+        function toast(msg, tipo) {
+            const t = el("div", { className: "toast" + (tipo === "erro" ? " erro" : ""), textContent: msg });
+            $("toasts").append(t);
+            setTimeout(() => t.remove(), tipo === "erro" ? 4500 : 1800);
+        }
+
         async function copiar(texto, btn) {
             try {
                 await navigator.clipboard.writeText(texto);
@@ -154,40 +382,102 @@
                 document.execCommand("copy");
                 ta.remove();
             }
-            const original = btn.textContent;
-            btn.textContent = "Copiado!";
-            setTimeout(() => { btn.textContent = original; }, 1200);
+            toast("Copiado!");
+            if (btn) {
+                const original = btn.textContent;
+                btn.textContent = "Copiado ✔";
+                setTimeout(() => { btn.textContent = original; }, 1200);
+            }
         }
 
-        function botaoMini(texto, aoClicar) {
-            return el("button", { className: "mini", type: "button", textContent: texto, onclick: (ev) => aoClicar(ev.currentTarget) });
+        function botaoMini(texto, aoClicar, extra) {
+            return el("button", { className: "mini" + (extra ? " " + extra : ""), type: "button", textContent: texto, onclick: (ev) => aoClicar(ev.currentTarget) });
+        }
+
+        // Barra de medição: verde-azulado dentro do limite, laranja perto, tijolo acima
+        function medidor(valor, limite, rotulo) {
+            const razao = valor / limite;
+            const nivel = razao > 1 ? "bad" : razao >= 0.92 ? "warn" : "ok";
+            const barra = el("div", { className: "meter " + (nivel === "ok" ? "" : nivel) });
+            const preenchimento = el("i");
+            preenchimento.style.width = Math.min(100, razao * 100) + "%";
+            barra.append(preenchimento);
+            return el("div", { className: "mrow" }, barra, el("span", { className: "mlabel " + nivel, textContent: rotulo }));
+        }
+
+        // ---------- Estado da tela ----------
+        function atualizarVazio() {
+            const algo = !$("cardTitulos").hidden || !$("cardSeo").hidden || !$("status").hidden || !$("demoBanner").hidden;
+            $("vazio").hidden = algo;
         }
 
         function setOcupado(sim) {
-            document.querySelectorAll("button.principal").forEach(b => b.disabled = sim);
-            document.getElementById('btnCancelar').style.display = sim ? "inline-block" : "none";
+            $("btnTitulo").disabled = sim;
+            $("btnSeo").disabled = sim;
         }
 
-        // ---------- Contador da matéria e aviso de palavra-chave ----------
+        function statusCarregando(msg) {
+            const s = $("status");
+            s.hidden = false;
+            s.className = "status";
+            $("statusTexto").textContent = msg;
+            $("btnCancelar").hidden = false;
+            atualizarVazio();
+        }
+        function statusErro(msg) {
+            const s = $("status");
+            s.hidden = false;
+            s.className = "status erro";
+            $("statusTexto").textContent = msg;
+            $("btnCancelar").hidden = true;
+            atualizarVazio();
+        }
+        function statusCancelado() {
+            const s = $("status");
+            s.hidden = false;
+            s.className = "status neutro";
+            $("statusTexto").textContent = "Geração cancelada.";
+            $("btnCancelar").hidden = true;
+            atualizarVazio();
+        }
+        function statusLimpar() {
+            $("status").hidden = true;
+            atualizarVazio();
+        }
+
+        function esconderCards() {
+            $("cardTitulos").hidden = true;
+            $("cardSeo").hidden = true;
+            estado.titulos = []; estado.seo = null;
+            estado.entradaTitulosId = null; estado.entradaSeoId = null;
+            estado.provTitulos = ""; estado.provSeo = "";
+            atualizarVazio();
+        }
+
+        // ---------- Contador, aviso de palavra-chave e chave ----------
         function atualizarContador() {
-            const t = document.getElementById('materia').value;
+            const t = $("materia").value;
             const palavras = t.trim() ? t.trim().split(/\s+/).length : 0;
-            const div = document.getElementById('contadorMateria');
+            const div = $("contadorMateria");
             div.textContent = `${t.length.toLocaleString('pt-BR')} caracteres • ${palavras.toLocaleString('pt-BR')} palavras`;
             if (t.length > AVISO_MATERIA_LONGA) {
-                div.append(el("span", { className: "ruim", textContent: " — matéria muito longa: a resposta pode demorar ou estourar o limite gratuito." }));
+                div.append(el("span", { className: "mlabel bad", textContent: " — matéria muito longa: a resposta pode demorar ou estourar o limite gratuito." }));
             }
         }
 
         function atualizarAvisoKw() {
-            const kw = normalizar(document.getElementById('palavraChave').value);
-            const texto = normalizar(document.getElementById('materia').value);
-            const div = document.getElementById('avisoKw');
-            if (kw && texto && !texto.includes(kw)) {
-                div.textContent = "⚠ Esta palavra-chave não aparece no texto da matéria (busca exata, sem diferenciar acento ou maiúsculas). Confira se está escrita como no texto.";
-            } else {
-                div.textContent = "";
-            }
+            const kw = normalizar($("palavraChave").value);
+            const texto = normalizar($("materia").value);
+            $("avisoKw").textContent = (kw && texto && !texto.includes(kw))
+                ? "⚠ Esta palavra-chave não aparece no texto da matéria (busca exata, sem diferenciar acento ou maiúsculas). Confira se está escrita como no texto."
+                : "";
+        }
+
+        function atualizarChaveStatus() {
+            const tem = $("apiKey").value.trim().length > 0;
+            const p = $("chaveStatus");
+            p.textContent = tem ? "configurada ✔" : "não configurada";
+            p.className = "pill " + (tem ? "ok" : "warn");
         }
 
         // ---------- Rascunho dos campos (sobrevive a recarregar a página) ----------
@@ -197,9 +487,9 @@
             timerRascunho = setTimeout(() => {
                 try {
                     localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify({
-                        materia: document.getElementById('materia').value,
-                        palavraChave: document.getElementById('palavraChave').value,
-                        tituloEscolhido: document.getElementById('tituloEscolhido').value
+                        materia: $("materia").value,
+                        palavraChave: $("palavraChave").value,
+                        tituloEscolhido: $("tituloEscolhido").value
                     }));
                 } catch (e) { /* sem espaço ou bloqueado: ignora */ }
             }, 400);
@@ -209,9 +499,9 @@
             try {
                 const r = JSON.parse(localStorage.getItem(CHAVE_RASCUNHO) || "null");
                 if (!r) return;
-                document.getElementById('materia').value = r.materia || "";
-                document.getElementById('palavraChave').value = r.palavraChave || "";
-                document.getElementById('tituloEscolhido').value = r.tituloEscolhido || "";
+                $("materia").value = r.materia || "";
+                $("palavraChave").value = r.palavraChave || "";
+                $("tituloEscolhido").value = r.tituloEscolhido || "";
             } catch (e) { /* ignora */ }
         }
 
@@ -246,27 +536,29 @@
                 palavraChave: ctx.palavraChave,
                 tituloEscolhido: ctx.tituloEscolhido,
                 materia: ctx.materia.slice(0, 20000),
-                provedor: estado.provedor
+                provedor: tipo === 'titulo' ? estado.provTitulos : estado.provSeo
             };
             if (tipo === 'titulo') {
                 entrada.titulos = estado.titulos;
                 entrada.segura = estado.segura;
+                estado.entradaTitulosId = entrada.id;
             } else {
                 const { materia, ...resto } = estado.seo;
                 entrada.seo = resto;
+                estado.entradaSeoId = entrada.id;
             }
             gravarHistorico([entrada, ...lerHistorico()]);
-            estado.entradaId = entrada.id;
             desenharHistorico();
         }
 
         // Atualiza a entrada atual (por exemplo, depois de "Encurtar")
-        function atualizarEntradaAtual() {
-            if (!estado.entradaId) return;
+        function atualizarEntrada(tipo) {
+            const id = tipo === 'titulo' ? estado.entradaTitulosId : estado.entradaSeoId;
+            if (!id) return;
             const lista = lerHistorico();
-            const e = lista.find(x => x.id === estado.entradaId);
+            const e = lista.find(x => x.id === id);
             if (!e) return;
-            if (e.tipo === 'titulo') {
+            if (tipo === 'titulo') {
                 e.titulos = estado.titulos;
             } else if (estado.seo) {
                 const { materia, ...resto } = estado.seo;
@@ -276,77 +568,87 @@
             desenharHistorico();
         }
 
-        function mostrarEntrada(e, preencherCampos) {
-            if (preencherCampos) {
-                document.getElementById('materia').value = e.materia || "";
-                document.getElementById('palavraChave').value = e.palavraChave || "";
-                document.getElementById('tituloEscolhido').value = e.tituloEscolhido || "";
-                atualizarContador();
-                atualizarAvisoKw();
-                salvarRascunho();
-            }
-            const div = document.getElementById('resultado');
-            div.style.display = 'block';
-            estado.provedor = e.provedor || "";
-            estado.entradaId = e.id;
+        function mostrarEntrada(e) {
             if (e.tipo === 'titulo') {
                 estado.titulos = e.titulos || [];
                 estado.segura = e.segura || 0;
                 estado.palavraChave = e.palavraChave || "";
+                estado.provTitulos = e.provedor || "";
+                estado.entradaTitulosId = e.id;
                 desenharTitulos();
             } else if (e.seo) {
                 estado.seo = { ...e.seo, materia: e.materia || "" };
+                estado.provSeo = e.provedor || "";
+                estado.entradaSeoId = e.id;
                 desenharSeo();
             }
         }
 
+        // Mostra a entrada e, se houver, a do outro tipo feita para a mesma matéria
+        function mostrarComPar(e) {
+            mostrarEntrada(e);
+            const chave = normalizar(e.materia || "").slice(0, 300);
+            const par = lerHistorico().find(x =>
+                x.tipo !== e.tipo &&
+                normalizar(x.palavraChave || "") === normalizar(e.palavraChave || "") &&
+                normalizar(x.materia || "").slice(0, 300) === chave);
+            if (par) mostrarEntrada(par);
+        }
+
         function abrirEntrada(id) {
             const e = lerHistorico().find(x => x.id === id);
-            if (e) {
-                mostrarEntrada(e, true);
-                window.scrollTo({ top: document.getElementById('resultado').offsetTop - 20, behavior: "smooth" });
-            }
+            if (!e) return;
+            estado.demo = false;
+            $("demoBanner").hidden = true;
+            esconderCards();
+            statusLimpar();
+            $("materia").value = e.materia || "";
+            $("palavraChave").value = e.palavraChave || "";
+            $("tituloEscolhido").value = e.tituloEscolhido || "";
+            atualizarContador();
+            atualizarAvisoKw();
+            salvarRascunho();
+            mostrarComPar(e);
+            const alvo = !$("cardTitulos").hidden ? $("cardTitulos") : $("cardSeo");
+            alvo.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
 
         function excluirEntrada(id) {
             gravarHistorico(lerHistorico().filter(x => x.id !== id));
-            if (estado.entradaId === id) estado.entradaId = null;
+            if (estado.entradaTitulosId === id) estado.entradaTitulosId = null;
+            if (estado.entradaSeoId === id) estado.entradaSeoId = null;
             desenharHistorico();
         }
 
         function limparHistorico() {
             if (!confirm("Apagar todo o histórico deste navegador?")) return;
             try { localStorage.removeItem(CHAVE_HISTORICO); } catch (e) { /* ignora */ }
-            estado.entradaId = null;
+            estado.entradaTitulosId = null;
+            estado.entradaSeoId = null;
             desenharHistorico();
         }
 
         function desenharHistorico() {
-            const box = document.getElementById('historico');
-            box.innerHTML = "";
             const lista = lerHistorico();
+            const box = $("listaHistorico");
+            box.innerHTML = "";
+            $("cardHistorico").hidden = lista.length === 0;
             if (!lista.length) return;
 
-            box.append(el("h2", { textContent: `Histórico (últimos ${MAX_HISTORICO})` }));
+            $("tituloHistorico").textContent = `Histórico (últimos ${MAX_HISTORICO})`;
             lista.forEach(e => {
                 const data = new Date(e.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-                const rotulo = e.tipo === 'titulo' ? 'Títulos' : 'SEO';
-                const item = el("div", { className: "item" },
-                    el("div", { className: "texto", textContent: `${data} • ${rotulo} • ${e.palavraChave || "(sem palavra-chave)"}` })
+                const tag = el("span", { className: "tag" + (e.tipo === 'seo' ? " seo" : ""), textContent: e.tipo === 'titulo' ? "Títulos" : "SEO" });
+                const principal = e.tipo === 'seo' && e.tituloEscolhido ? e.tituloEscolhido : (e.palavraChave || "(sem palavra-chave)");
+                const info = el("div", { className: "hist-info" },
+                    el("div", { className: "hist-tit", textContent: principal }),
+                    el("div", { className: "hist-sub" }, tag, `${data}${e.provedor ? " • " + e.provedor : ""}`)
                 );
-                if (e.tipo === 'seo' && e.tituloEscolhido) {
-                    item.append(el("div", { className: "info", textContent: e.tituloEscolhido }));
-                }
-                if (e.provedor) {
-                    item.append(el("div", { className: "info", textContent: `Respondido por: ${e.provedor}` }));
-                }
-                item.append(el("div", { className: "acoes" },
-                    botaoMini("Abrir", () => abrirEntrada(e.id)),
-                    botaoMini("Excluir", () => excluirEntrada(e.id))
-                ));
-                box.append(item);
+                box.append(el("div", { className: "hist-item" }, info,
+                    el("div", { className: "hist-acoes" },
+                        botaoMini("Abrir", () => abrirEntrada(e.id)),
+                        botaoMini("Excluir", () => excluirEntrada(e.id)))));
             });
-            box.append(botaoMini("Limpar histórico", limparHistorico));
         }
 
         // ---------- Chamada ao Gemini ----------
@@ -418,14 +720,11 @@
         }
 
         // Devolve { texto, provedor }.
-        async function chamarIA(promptTexto, statusEl, sinal) {
-            const apiKey = document.getElementById('apiKey').value.trim();
+        async function chamarIA(promptTexto, reportar, sinal) {
+            const apiKey = $("apiKey").value.trim();
             if (!apiKey) throw new Error("Cole a chave da API do Gemini.");
-
-            const reportar = (msg) => {
-                if (statusEl) statusEl.textContent = `${msg}... Aguarde.`;
-            };
-            return await chamarGemini(apiKey, promptTexto, reportar, sinal);
+            const rep = (msg) => { if (reportar) reportar(`${msg}... Aguarde.`); };
+            return await chamarGemini(apiKey, promptTexto, rep, sinal);
         }
 
         // ---------- Prompts (a IA devolve JSON; as contagens são feitas pelo código) ----------
@@ -438,44 +737,37 @@
         }
 
         // ---------- Renderização: títulos ----------
-        function rodapeProvedor() {
-            if (!estado.provedor) return null;
-            return el("div", { className: "info rodape-resultado", textContent: `Respondido por: ${estado.provedor}` });
-        }
-
         function desenharTitulos() {
-            const div = document.getElementById('resultado');
-            div.innerHTML = "";
+            const box = $("listaTitulos");
+            box.innerHTML = "";
 
             estado.titulos.forEach((titulo, i) => {
-                const tamanho = titulo.length;
-                const passou = tamanho > LIMITE_TITULO;
-
-                const linhaTexto = el("div", { className: "texto" }, titulo);
-                if (estado.segura === i + 1) {
-                    linhaTexto.append(el("span", { className: "selo", textContent: "mais segura" }));
-                }
-
-                const info = el("div", { className: "info" },
-                    el("span", { className: passou ? "ruim" : "ok", textContent: `${tamanho}/${LIMITE_TITULO} caracteres` })
-                );
-                if (passou) info.append(" — passou do limite");
+                const passou = titulo.length > LIMITE_TITULO;
+                const txt = el("div", { className: "titulo-txt" }, titulo);
+                if (estado.segura === i + 1) txt.append(el("span", { className: "selo", textContent: "mais segura" }));
 
                 const acoes = el("div", { className: "acoes" },
                     botaoMini("Copiar", (b) => copiar(titulo, b)),
-                    botaoMini("Usar este", () => usarTitulo(titulo))
+                    botaoMini("Usar este e gerar SEO", () => usarTitulo(titulo), "destaque")
                 );
-                if (passou) acoes.append(botaoMini("Encurtar", (b) => encurtarTitulo(i, b)));
+                if (passou) acoes.append(botaoMini("Encurtar", (b) => encurtarTitulo(i, b), "aviso"));
 
-                div.append(el("div", { className: "item" }, linhaTexto, info, acoes));
+                const rotulo = `${titulo.length}/${LIMITE_TITULO} caracteres` + (passou ? " • passou do limite" : "");
+                box.append(el("div", { className: "opcao" },
+                    el("div", { className: "num", textContent: String(i + 1) }),
+                    el("div", {}, txt, medidor(titulo.length, LIMITE_TITULO, rotulo), acoes)
+                ));
             });
 
-            const rodape = rodapeProvedor();
-            if (rodape) div.append(rodape);
+            const prov = $("provTitulos");
+            prov.hidden = !estado.provTitulos;
+            prov.textContent = estado.provTitulos ? `Respondido por: ${estado.provTitulos}` : "";
+            $("cardTitulos").hidden = false;
+            atualizarVazio();
         }
 
         function usarTitulo(titulo) {
-            document.getElementById('tituloEscolhido').value = titulo;
+            $("tituloEscolhido").value = titulo;
             salvarRascunho();
             gerar('seo');
         }
@@ -491,11 +783,11 @@
                 if (!novo) throw new Error("Resposta vazia.");
                 estado.titulos[i] = novo;
                 desenharTitulos();
-                atualizarEntradaAtual();
+                atualizarEntrada('titulo');
             } catch (e) {
                 btn.disabled = false;
                 btn.textContent = "Encurtar";
-                alert("Não foi possível encurtar: " + e.message);
+                toast("Não foi possível encurtar: " + e.message, "erro");
             }
         }
 
@@ -571,69 +863,77 @@
         function blocoChecklist(s) {
             const itens = checklistRankMath(s);
             const oks = itens.filter(i => i.nivel === "ok").length;
-            const box = el("div", { className: "item" },
-                el("div", { className: "rotulo", textContent: `Checklist do Rank Math (${oks}/${itens.length})` })
-            );
-            const simbolos = { ok: "✔", atencao: "⚠", ruim: "✖" };
+            const razao = itens.length ? oks / itens.length : 0;
+            const nivel = razao >= 0.8 ? "" : razao >= 0.5 ? " warn" : " bad";
+
+            const anel = el("div", { className: "ring" + nivel }, el("span", { textContent: `${oks}/${itens.length}` }));
+            anel.style.setProperty("--p", String(Math.round(razao * 100)));
+
+            const lista = el("ul", { className: "check-list" });
+            const simbolos = { ok: "✔", atencao: "!", ruim: "✖" };
             itens.forEach(i => {
-                box.append(el("div", { className: "check " + i.nivel, textContent: `${simbolos[i.nivel]} ${i.texto}` }));
+                lista.append(el("li", {},
+                    el("span", { className: "ico " + i.nivel, textContent: simbolos[i.nivel] }),
+                    el("span", { textContent: i.texto })
+                ));
             });
-            box.append(el("div", {
-                className: "info",
-                textContent: "Verificação por texto exato, sem diferenciar acentos nem maiúsculas. O Rank Math pode aceitar variações da palavra-chave."
-            }));
-            return box;
+
+            return el("div", { className: "campo" },
+                el("div", { className: "check-head" }, anel, el("div", { className: "rot", textContent: "Checklist do Rank Math" })),
+                lista,
+                el("div", { className: "nota", textContent: "Verificação por texto exato, sem diferenciar acentos nem maiúsculas. O Rank Math pode aceitar variações da palavra-chave." })
+            );
         }
 
         // ---------- Renderização: SEO ----------
-        function itemSeo(rotulo, valor, infoNode, acoesNodes) {
+        function campoSeo(rotulo, valorNode, extraNodes, acoesNodes) {
             const acoes = el("div", { className: "acoes" });
             acoesNodes.forEach(a => acoes.append(a));
-            return el("div", { className: "item" },
-                el("div", { className: "rotulo", textContent: rotulo }),
-                el("div", { className: "texto", textContent: valor }),
-                infoNode,
-                acoes
-            );
+            const c = el("div", { className: "campo" }, el("div", { className: "rot", textContent: rotulo }), valorNode);
+            extraNodes.forEach(n => c.append(n));
+            c.append(acoes);
+            return c;
         }
 
         function desenharSeo() {
-            const div = document.getElementById('resultado');
-            div.innerHTML = "";
+            const box = $("conteudoSeo");
+            box.innerHTML = "";
             const s = estado.seo;
 
             // Meta descrição
             const px = medirPx(s.meta);
             const metaPassou = px > LIMITE_META_PX;
-            const infoMeta = el("div", { className: "info" },
-                el("span", { className: metaPassou ? "ruim" : "ok", textContent: `~${px}px de ${LIMITE_META_PX}px` }),
-                ` (estimativa) • ${s.meta.length} caracteres`
-            );
             const acoesMeta = [botaoMini("Copiar", (b) => copiar(s.meta, b))];
-            if (metaPassou) acoesMeta.push(botaoMini("Encurtar", (b) => encurtarMeta(b)));
-            div.append(itemSeo("Meta descrição", s.meta, infoMeta, acoesMeta));
+            if (metaPassou) acoesMeta.push(botaoMini("Encurtar", (b) => encurtarMeta(b), "aviso"));
+            box.append(campoSeo("Meta descrição",
+                el("div", { className: "val", textContent: s.meta }),
+                [medidor(px, LIMITE_META_PX, `~${px}px de ${LIMITE_META_PX}px (estimativa) • ${s.meta.length} caracteres` + (metaPassou ? " • passou do limite" : ""))],
+                acoesMeta));
 
             // Slug
-            const infoSlug = el("div", { className: "info" },
-                el("span", { className: s.slug.length <= LIMITE_SLUG && s.slug ? "ok" : "ruim", textContent: `${s.slug.length}/${LIMITE_SLUG} caracteres` }),
-                s.slugAjustado ? " • ajustado automaticamente (sem acento, sem caracteres especiais)" : ""
-            );
-            div.append(itemSeo("Slug", s.slug, infoSlug, [botaoMini("Copiar", (b) => copiar(s.slug, b))]));
+            const slugOk = s.slug && s.slug.length <= LIMITE_SLUG;
+            box.append(campoSeo("Slug",
+                el("div", {}, el("span", { className: "val slug", textContent: s.slug })),
+                [medidor(s.slug.length, LIMITE_SLUG, `${s.slug.length}/${LIMITE_SLUG} caracteres` + (s.slugAjustado ? " • ajustado automaticamente (sem acento, sem caracteres especiais)" : "") + (slugOk ? "" : " • fora do limite"))],
+                [botaoMini("Copiar", (b) => copiar(s.slug, b))]));
 
             // Palavra-chave foco
             const textoFoco = s.segunda ? `${s.foco} (${s.segunda})` : s.foco;
-            div.append(itemSeo("Palavra-chave foco", textoFoco, el("div", { className: "info" }, ""),
+            box.append(campoSeo("Palavra-chave foco",
+                el("div", { className: "val", textContent: textoFoco }), [],
                 [botaoMini("Copiar", (b) => copiar(s.foco, b))]));
 
             // Checklist do Rank Math
-            div.append(blocoChecklist(s));
+            box.append(blocoChecklist(s));
 
-            // Copiar tudo
+            // Copiar tudo + provedor
             const tudo = `Meta descrição: ${s.meta}\nSlug: ${s.slug}\nPalavra-chave foco: ${s.foco}`;
-            div.append(el("div", { className: "rodape-resultado" }, botaoMini("Copiar tudo", (b) => copiar(tudo, b))));
+            const rodape = el("div", { className: "rodape-card" }, botaoMini("Copiar tudo", (b) => copiar(tudo, b), "destaque"));
+            if (estado.provSeo) rodape.append(el("span", { className: "chip", textContent: `Respondido por: ${estado.provSeo}` }));
+            box.append(rodape);
 
-            const rodape = rodapeProvedor();
-            if (rodape) div.append(rodape);
+            $("cardSeo").hidden = false;
+            atualizarVazio();
         }
 
         async function encurtarMeta(btn) {
@@ -647,11 +947,11 @@
                 if (!novo) throw new Error("Resposta vazia.");
                 estado.seo.meta = novo;
                 desenharSeo();
-                atualizarEntradaAtual();
+                atualizarEntrada('seo');
             } catch (e) {
                 btn.disabled = false;
                 btn.textContent = "Encurtar";
-                alert("Não foi possível encurtar: " + e.message);
+                toast("Não foi possível encurtar: " + e.message, "erro");
             }
         }
 
@@ -661,58 +961,65 @@
         }
 
         function limparTudo() {
-            if (!confirm("Limpar matéria, palavra-chave, título escolhido e resultado? (O histórico é mantido.)")) return;
-            document.getElementById('materia').value = "";
-            document.getElementById('palavraChave').value = "";
-            document.getElementById('tituloEscolhido').value = "";
+            if (!confirm("Limpar matéria, palavra-chave, título escolhido e resultados? (O histórico é mantido.)")) return;
+            $("materia").value = "";
+            $("palavraChave").value = "";
+            $("tituloEscolhido").value = "";
             try { localStorage.removeItem(CHAVE_RASCUNHO); } catch (e) { /* ignora */ }
-            const r = document.getElementById('resultado');
-            r.innerHTML = "";
-            r.style.display = "none";
-            estado.titulos = [];
-            estado.seo = null;
-            estado.provedor = "";
-            estado.entradaId = null;
+            estado.demo = false;
+            $("demoBanner").hidden = true;
+            esconderCards();
+            statusLimpar();
             atualizarContador();
             atualizarAvisoKw();
         }
 
         async function gerar(tipo) {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const materia = document.getElementById('materia').value.trim();
-            const palavraChave = document.getElementById('palavraChave').value.trim();
-            const tituloEscolhido = document.getElementById('tituloEscolhido').value.trim();
-            const resultadoDiv = document.getElementById('resultado');
+            if (controleGeracao) return;
+
+            const apiKey = $("apiKey").value.trim();
+            const materia = $("materia").value.trim();
+            const palavraChave = $("palavraChave").value.trim();
+            const tituloEscolhido = $("tituloEscolhido").value.trim();
 
             if (!apiKey) {
-                alert("Por favor, cole a Chave da API do Gemini no campo superior.");
+                $("configBox").open = true;
+                $("apiKey").focus();
+                toast("Cole a chave da API do Gemini para continuar.", "erro");
                 return;
             }
             if (!materia || !palavraChave) {
-                alert("Por favor, preencha o texto da matéria e a palavra-chave.");
+                (!materia ? $("materia") : $("palavraChave")).focus();
+                toast("Preencha o texto da matéria e a palavra-chave.", "erro");
                 return;
             }
             if (tipo === 'seo' && !tituloEscolhido) {
-                alert("Para gerar o SEO, preencha também o Título Escolhido.");
+                $("tituloEscolhido").focus();
+                toast("Para gerar o SEO, preencha também o título escolhido.", "erro");
                 return;
             }
 
-            localStorage.setItem('esHojeGeminiKey', apiKey);
+            try { localStorage.setItem('esHojeGeminiKey', apiKey); } catch (e) { /* ignora */ }
+
+            if (estado.demo) {
+                // Sai do modo exemplo: os resultados fictícios dão lugar aos reais
+                estado.demo = false;
+                $("demoBanner").hidden = true;
+                esconderCards();
+            }
 
             controleGeracao = new AbortController();
             const sinal = controleGeracao.signal;
             setOcupado(true);
-            resultadoDiv.style.display = 'block';
-            resultadoDiv.textContent = "A processar matéria... Aguarde.";
+            statusCarregando("A processar matéria... Aguarde.");
 
             try {
                 const prompt = tipo === 'titulo'
                     ? promptTitulos(palavraChave, materia)
                     : promptSeo(tituloEscolhido, materia);
 
-                const resposta = await chamarIA(prompt, resultadoDiv, sinal);
+                const resposta = await chamarIA(prompt, statusCarregando, sinal);
                 const dados = lerJSON(resposta.texto);
-                estado.provedor = resposta.provedor;
 
                 if (tipo === 'titulo') {
                     const lista = (Array.isArray(dados.titulos) ? dados.titulos : [])
@@ -722,6 +1029,7 @@
                     estado.titulos = lista;
                     estado.segura = Number(dados.mais_segura) || 0;
                     estado.palavraChave = palavraChave;
+                    estado.provTitulos = resposta.provedor;
                     desenharTitulos();
                 } else {
                     const slugOriginal = String(dados.slug || "").trim();
@@ -738,16 +1046,18 @@
                         titulo: tituloEscolhido,
                         materia: materia
                     };
+                    estado.provSeo = resposta.provedor;
                     desenharSeo();
                 }
 
                 salvarEntrada(tipo, { materia, palavraChave, tituloEscolhido });
+                statusLimpar();
+                (tipo === 'titulo' ? $("cardTitulos") : $("cardSeo")).scrollIntoView({ behavior: "smooth", block: "nearest" });
             } catch (error) {
-                resultadoDiv.innerHTML = "";
                 if (error instanceof ErroCancelado || sinal.aborted) {
-                    resultadoDiv.append(el("span", { className: "cancelado", textContent: "Geração cancelada." }));
+                    statusCancelado();
                 } else {
-                    resultadoDiv.append(el("span", { className: "erro", textContent: `Falha na comunicação: ${error.message}` }));
+                    statusErro(`Falha na comunicação: ${error.message}`);
                 }
             } finally {
                 controleGeracao = null;
@@ -755,29 +1065,113 @@
             }
         }
 
+        // ---------- Exemplo (dados fictícios, só para ver o visual) ----------
+        function verExemplo() {
+            if (controleGeracao) return;
+            if (($("materia").value.trim() || $("palavraChave").value.trim()) && !estado.demo &&
+                !confirm("O exemplo vai substituir o que está nos campos agora (o rascunho salvo só muda quando você voltar a digitar). Continuar?")) return;
+
+            const materia = "Um acidente na Terceira Ponte, entre dois veículos, causou lentidão no sentido Vitória na manhã desta terça-feira. A batida interditou parcialmente uma das faixas e formou fila de carros no horário de pico. Não houve registro de feridos graves. A pista foi liberada após cerca de uma hora e meia, e o fluxo voltou ao normal ao longo da manhã. Os motoristas que passam pelo trecho devem redobrar a atenção.";
+            const titulos = [
+                "Acidente na Terceira Ponte causa lentidão no sentido Vitória",
+                "Acidente na Terceira Ponte interdita faixa e gera fila",
+                "Dois carros batem e acidente na Terceira Ponte trava o trânsito",
+                "Acidente na Terceira Ponte: pista é liberada após 1h30",
+                "Motoristas enfrentam fila após acidente na Terceira Ponte nesta terça-feira"
+            ];
+
+            $("materia").value = materia;
+            $("palavraChave").value = "acidente na terceira ponte";
+            $("tituloEscolhido").value = titulos[0];
+            atualizarContador();
+            atualizarAvisoKw();
+
+            esconderCards();
+            statusLimpar();
+            estado.demo = true;
+            estado.titulos = titulos;
+            estado.segura = 1;
+            estado.palavraChave = "acidente na terceira ponte";
+            estado.provTitulos = "exemplo";
+            estado.seo = {
+                meta: "Acidente na Terceira Ponte entre dois veículos causou lentidão no sentido Vitória nesta terça. Não houve feridos graves e a pista foi liberada.",
+                slug: "acidente-terceira-ponte",
+                slugAjustado: false,
+                foco: "acidente na terceira ponte",
+                segunda: "trânsito na Terceira Ponte",
+                titulo: titulos[0],
+                materia
+            };
+            estado.provSeo = "exemplo";
+            $("demoBanner").hidden = false;
+            desenharTitulos();
+            desenharSeo();
+        }
+
+        // ---------- Tema claro / escuro ----------
+        function temaAtual() {
+            const forcado = document.documentElement.dataset.theme;
+            if (forcado === "dark" || forcado === "light") return forcado;
+            return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        function atualizarBotaoTema() {
+            $("btnTema").textContent = temaAtual() === "dark" ? "Modo claro" : "Modo escuro";
+        }
+        function alternarTema() {
+            const novo = temaAtual() === "dark" ? "light" : "dark";
+            document.documentElement.dataset.theme = novo;
+            try { localStorage.setItem(CHAVE_TEMA, novo); } catch (e) { /* ignora */ }
+            atualizarBotaoTema();
+        }
+
         // ---------- Inicialização ----------
         document.addEventListener("DOMContentLoaded", () => {
-            const savedKey = localStorage.getItem('esHojeGeminiKey');
-            if (savedKey) document.getElementById('apiKey').value = savedKey;
-            // A chave do Groq (de versões anteriores) não é mais usada: remove do navegador
-            try { localStorage.removeItem('esHojeGroqKey'); } catch (e) { /* ignora */ }
+            try {
+                const savedKey = localStorage.getItem('esHojeGeminiKey');
+                if (savedKey) $("apiKey").value = savedKey;
+                // A chave do Groq (de versões anteriores) não é mais usada: remove do navegador
+                localStorage.removeItem('esHojeGroqKey');
+            } catch (e) { /* ignora */ }
+            $("configBox").open = !$("apiKey").value.trim();
+            atualizarChaveStatus();
+            atualizarBotaoTema();
 
             restaurarRascunho();
             atualizarContador();
             atualizarAvisoKw();
 
+            $("btnTitulo").addEventListener("click", () => gerar('titulo'));
+            $("btnSeo").addEventListener("click", () => gerar('seo'));
+            $("btnLimpar").addEventListener("click", limparTudo);
+            $("btnCancelar").addEventListener("click", cancelar);
+            $("btnExemplo").addEventListener("click", verExemplo);
+            $("btnTema").addEventListener("click", alternarTema);
+            $("btnLimparHistorico").addEventListener("click", limparHistorico);
+            window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", atualizarBotaoTema);
+
+            $("apiKey").addEventListener("input", atualizarChaveStatus);
             ['materia', 'palavraChave', 'tituloEscolhido'].forEach(id => {
-                document.getElementById(id).addEventListener('input', () => {
+                $(id).addEventListener('input', () => {
                     salvarRascunho();
                     if (id !== 'tituloEscolhido') atualizarAvisoKw();
                     if (id === 'materia') atualizarContador();
                 });
             });
 
+            // Atalho: Ctrl+Enter (ou Cmd+Enter)
+            document.addEventListener("keydown", (ev) => {
+                if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+                    ev.preventDefault();
+                    const noTitulo = document.activeElement && document.activeElement.id === "tituloEscolhido";
+                    gerar(noTitulo && $("tituloEscolhido").value.trim() ? 'seo' : 'titulo');
+                }
+            });
+
             // Reabre o último resultado, se houver
             const lista = lerHistorico();
-            if (lista.length) mostrarEntrada(lista[0], false);
+            if (lista.length) mostrarComPar(lista[0]);
             desenharHistorico();
+            atualizarVazio();
         });
     </script>
 </body>
