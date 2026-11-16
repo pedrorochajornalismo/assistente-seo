@@ -3,329 +3,1176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ES Hoje - Estilos em preto e branco</title>
+    <title>ES Hoje - Assistente de SEO e Títulos</title>
+    <script>
+        // Aplica o tema salvo antes de desenhar a página (evita "piscar")
+        try {
+            const t = localStorage.getItem('esHojeTema');
+            if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+        } catch (e) { /* sem armazenamento: segue o tema do sistema */ }
+    </script>
     <style>
-        /* Somente preto e branco. "Inverter" troca as duas cores entre si.
-           Estados que antes usavam cor agora usam forma: cheio, pontilhado e hachurado. */
+        /* ---------- Paleta ES Hoje ----------
+           #038C8C verde-azulado | #9FBFBC verde-névoa | #BF681B laranja queimado
+           #D97652 terracota     | #8C403A tijolo
+           Versões mais escuras são usadas onde há texto branco ou texto sobre fundo claro (contraste). */
         :root {
-            --ink: #000; --paper: #fff;
-            --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+            color-scheme: light;
+            --teal: #038C8C; --mist: #9FBFBC; --orange: #BF681B; --terra: #D97652; --brick: #8C403A;
+
+            --bg: #F1F6F5; --surface: #FFFFFF; --surface-2: #E7F0EE; --border: #CADBD8;
+            --text: #1B2F2E; --muted: #4C6664;
+
+            --btn: #026B6B; --btn-hover: #025858;
+            --btn2: #A85A14; --btn2-hover: #8F4A0E;
+
+            --ok: #026B6B;   --ok-bg: #DDEFED;
+            --warn: #9A4F0F; --warn-bg: #FBEADB;
+            --bad: #8C403A;  --bad-bg: #F6E5E2;
+
+            --meter-ok: #038C8C; --meter-warn: #BF681B; --meter-bad: #8C403A;
+            --chip-bg: #F8E0D5; --chip-text: #7A3A1C;
+            --header-bg: linear-gradient(135deg, #038C8C 0%, #026B6B 100%);
+            --shadow: 0 1px 2px rgba(20,50,50,.06), 0 6px 18px rgba(20,50,50,.07);
+            --focus: #BF681B;
         }
-        body[data-inverso="1"] { --ink: #fff; --paper: #000; }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                color-scheme: dark;
+                --bg: #0E1B1B; --surface: #152626; --surface-2: #1C3232; --border: #2A4543;
+                --text: #E3EEEC; --muted: #9FBFBC;
+                --btn: #027777; --btn-hover: #038C8C; --btn2: #A85A14; --btn2-hover: #BF681B;
+                --ok: #6FD0C8; --ok-bg: #12393A; --warn: #EBA470; --warn-bg: #392818; --bad: #EE9B93; --bad-bg: #3A2322;
+                --meter-ok: #2FB3B0; --meter-warn: #D97652; --meter-bad: #C0605A;
+                --chip-bg: #4A2C22; --chip-text: #F2B79F;
+                --header-bg: linear-gradient(135deg, #026B6B 0%, #0C4A4A 100%);
+                --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
+                --focus: #D97652;
+            }
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #0E1B1B; --surface: #152626; --surface-2: #1C3232; --border: #2A4543;
+            --text: #E3EEEC; --muted: #9FBFBC;
+            --btn: #027777; --btn-hover: #038C8C; --btn2: #A85A14; --btn2-hover: #BF681B;
+            --ok: #6FD0C8; --ok-bg: #12393A; --warn: #EBA470; --warn-bg: #392818; --bad: #EE9B93; --bad-bg: #3A2322;
+            --meter-ok: #2FB3B0; --meter-warn: #D97652; --meter-bad: #C0605A;
+            --chip-bg: #4A2C22; --chip-text: #F2B79F;
+            --header-bg: linear-gradient(135deg, #026B6B 0%, #0C4A4A 100%);
+            --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
+            --focus: #D97652;
+        }
 
         * { box-sizing: border-box; }
-        body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.55; }
-        :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-        button, input, textarea { font: inherit; color: inherit; }
-
-        /* ---------- Barra para trocar de estilo (só existe nesta demonstração) ---------- */
-        .seletor { position: sticky; top: 0; z-index: 10; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 16px; background: var(--paper); border-bottom: 1px solid var(--ink); font-size: 14px; }
-        .seletor .rot { font-style: italic; margin-right: 4px; }
-        .seletor button { padding: 5px 12px; border: 1px solid var(--ink); background: var(--paper); cursor: pointer; }
-        .seletor button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-        .seletor .sep { flex: 1; }
+        body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+        [hidden] { display: none !important; }
+        :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
         /* ---------- Cabeçalho ---------- */
-        .masthead { max-width: 1100px; margin: 0 auto; padding: 28px 24px 0; }
-        .masthead .faixa { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 14px; font-style: italic; }
-        .masthead h1 { margin: 6px 0 0; font-size: 56px; line-height: 1.05; font-weight: 700; letter-spacing: -.01em; }
+        .topo { background: var(--header-bg); color: #fff; }
+        .topo-in { max-width: 1180px; margin: 0 auto; padding: 18px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .marca { display: flex; align-items: center; gap: 12px; }
+        .logo { position: relative; width: 44px; height: 44px; border-radius: 12px; background: #fff; color: #026B6B; display: grid; place-items: center; font-weight: 800; font-size: 18px; letter-spacing: -.02em; }
+        .logo::after { content: ""; position: absolute; right: -4px; top: -4px; width: 12px; height: 12px; border-radius: 50%; background: var(--terra); border: 2px solid #038C8C; }
+        .marca h1 { margin: 0; font-size: 20px; line-height: 1.2; }
+        .marca p { margin: 0; font-size: 13px; opacity: .9; }
+        .topo-acoes { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-topo { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 10px; padding: 8px 14px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 40px; }
+        .btn-topo:hover { background: rgba(255,255,255,.26); }
+        .faixa { height: 4px; background: linear-gradient(90deg, var(--orange), var(--terra), var(--brick)); }
 
-        /* ---------- Layout base ---------- */
-        .app { max-width: 1100px; margin: 0 auto; padding: 24px 24px 72px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; align-items: start; }
-        @media (max-width: 900px) { .app { grid-template-columns: 1fr; gap: 32px; padding: 20px 16px 56px; } .masthead { padding: 20px 16px 0; } .masthead h1 { font-size: 44px; } }
+        /* ---------- Layout ---------- */
+        .layout { max-width: 1180px; margin: 24px auto 0; padding: 0 24px 56px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 24px; align-items: start; }
+        @media (max-width: 900px) { .layout { grid-template-columns: 1fr; padding: 0 16px 48px; margin-top: 16px; } .topo-in { padding: 16px; } }
 
-        h2 { margin: 0 0 16px; font-size: 15px; font-weight: 700; }
-        label { display: block; margin: 18px 0 6px; font-weight: 700; font-size: 15px; }
-        label small { font-weight: 400; font-style: italic; }
-        input, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--ink); background: var(--paper); border-radius: 0; }
-        textarea { height: 190px; resize: vertical; line-height: 1.5; }
-        .hint { margin-top: 6px; font-size: 14px; font-style: italic; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+        .saida > .card, .saida > .status, .saida > .banner { margin-bottom: 16px; }
+        .card h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+        .card h2::before { content: ""; width: 4px; height: 16px; border-radius: 4px; background: var(--teal); }
+        .card.seo h2::before { background: var(--orange); }
 
-        .btn { padding: 10px 18px; border: 1px solid var(--ink); background: var(--paper); cursor: pointer; font-size: 16px; }
-        .btn.primario { background: var(--ink); color: var(--paper); }
-        .btn:hover { background: var(--ink); color: var(--paper); }
-        .btn.primario:hover { background: var(--paper); color: var(--ink); }
-        .botoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
-        .chave { margin: 18px 0 0; font-size: 14px; font-style: italic; }
+        label { display: block; font-weight: 600; font-size: 14px; margin: 16px 0 6px; }
+        textarea, input[type="text"], input[type="password"] { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; }
+        textarea { height: 220px; resize: vertical; }
+        textarea:focus, input:focus { border-color: var(--teal); }
+        ::placeholder { color: var(--muted); opacity: .8; }
+        .hint { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+        .hint.alerta { color: var(--warn); font-weight: 600; }
 
-        .mini { padding: 3px 11px; border: 1px solid var(--ink); background: var(--paper); font-size: 14px; cursor: pointer; }
-        .mini.cheio { background: var(--ink); color: var(--paper); }
-        .mini:hover { background: var(--ink); color: var(--paper); }
-        .mini.cheio:hover { background: var(--paper); color: var(--ink); }
-        .acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        /* Chave da API */
+        .config { border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+        .config summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; font-weight: 700; font-size: 14px; }
+        .config summary::-webkit-details-marker { display: none; }
+        .config-body { padding: 0 14px 14px; }
+        .config-body input { margin-top: 4px; }
+        .pill { font-size: 12px; padding: 2px 10px; border-radius: 99px; font-weight: 700; }
+        .pill.ok { background: var(--ok-bg); color: var(--ok); }
+        .pill.warn { background: var(--warn-bg); color: var(--warn); }
+
+        /* Botões */
+        .botoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+        .btn { min-height: 44px; border-radius: 10px; border: 1px solid transparent; padding: 10px 16px; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .btn .sub { font-weight: 500; font-size: 12px; opacity: .9; }
+        .btn-primario { background: var(--btn); color: #fff; } .btn-primario:hover { background: var(--btn-hover); }
+        .btn-seo { background: var(--btn2); color: #fff; } .btn-seo:hover { background: var(--btn2-hover); }
+        .btn-fantasma { background: transparent; border-color: var(--border); color: var(--text); } .btn-fantasma:hover { background: var(--surface-2); }
+        .btn:disabled, .mini:disabled { opacity: .55; cursor: not-allowed; }
+        .atalho { font-size: 12px; color: var(--muted); margin-top: 12px; }
+        kbd { font: inherit; font-size: 11.5px; padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface-2); }
+
+        .mini { min-height: 32px; padding: 4px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .mini:hover { border-color: var(--teal); }
+        .mini.destaque { background: var(--btn); color: #fff; border-color: transparent; } .mini.destaque:hover { background: var(--btn-hover); }
+        .mini.aviso { background: var(--warn-bg); color: var(--warn); border-color: var(--orange); }
+        .acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+        /* Status */
+        .status { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+        .status .texto { flex: 1; white-space: pre-wrap; font-size: 14px; }
+        .status.erro { background: var(--bad-bg); border-color: var(--brick); }
+        .status.erro .texto { color: var(--bad); font-weight: 600; }
+        .status.erro .spin, .status.neutro .spin { display: none; }
+        .spin { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--surface-2); border-top-color: var(--teal); animation: gira .8s linear infinite; }
+        @keyframes gira { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.5s; } .toast { animation: none; } }
+
+        .banner { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--orange); border-radius: 12px; padding: 10px 14px; font-size: 14px; font-weight: 600; }
+
+        .vazio { text-align: center; padding: 36px 22px; border: 2px dashed var(--border); border-radius: 16px; color: var(--muted); }
+        .vazio strong { display: block; color: var(--text); font-size: 17px; margin-bottom: 6px; }
+        .vazio ol { text-align: left; display: inline-block; margin: 12px 0 0; padding-left: 20px; }
 
         /* Títulos */
-        .opcao { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 10px; padding: 18px 0; border-top: 1px solid var(--ink); }
-        .opcao:first-of-type { border-top: 0; padding-top: 4px; }
-        .num { font-size: 24px; line-height: 1.2; font-weight: 700; }
-        .titulo-txt { font-size: 21px; line-height: 1.28; font-weight: 700; }
-        .selo { display: inline-block; margin-left: 8px; padding: 0 9px; border: 1px solid var(--ink); border-radius: 99px; font-size: 12px; font-weight: 400; font-style: italic; vertical-align: middle; white-space: nowrap; }
+        .opcao { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; padding: 16px 0; border-top: 1px solid var(--border); }
+        .opcao:first-child { border-top: 0; padding-top: 4px; }
+        .num { width: 30px; height: 30px; border-radius: 50%; background: var(--ok-bg); color: var(--ok); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+        .titulo-txt { font-family: Georgia, "Times New Roman", serif; font-size: 18px; font-weight: 700; line-height: 1.3; word-break: break-word; }
+        .selo { display: inline-block; font-family: system-ui, sans-serif; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 99px; background: var(--chip-bg); color: var(--chip-text); margin-left: 8px; vertical-align: middle; }
 
-        /* Medidores: cheio = dentro do limite | pontilhado = no limite | hachurado = passou */
-        .mrow { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
-        .meter { flex: 1 1 150px; height: 10px; border: 1px solid var(--ink); background: var(--paper); overflow: hidden; }
-        .meter i { display: block; height: 100%; background: var(--ink); }
-        .meter.warn i { background: repeating-linear-gradient(90deg, var(--ink) 0 3px, var(--paper) 3px 5px); }
-        .meter.bad i { background: repeating-linear-gradient(45deg, var(--ink) 0 3px, var(--paper) 3px 6px); }
-        .mlabel { font-size: 14px; font-style: italic; }
-        .mlabel.bad { font-weight: 700; font-style: normal; }
-        .legenda { margin-top: 18px; font-size: 13px; font-style: italic; }
+        /* Medidores */
+        .mrow { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+        .meter { flex: 1 1 150px; height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+        .meter i { display: block; height: 100%; border-radius: 99px; background: var(--meter-ok); transition: width .3s; }
+        .meter.warn i { background: var(--meter-warn); }
+        .meter.bad i { background: var(--meter-bad); }
+        .mlabel { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+        .mlabel.ok { color: var(--ok); } .mlabel.warn { color: var(--warn); } .mlabel.bad { color: var(--bad); }
 
         /* SEO */
-        .campo { padding: 18px 0; border-top: 1px solid var(--ink); }
-        .campo:first-of-type { border-top: 0; padding-top: 0; }
-        .campo .rot { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-        .campo .val { margin-top: 4px; }
-        .slug { display: inline-block; padding: 1px 8px; border: 1px solid var(--ink); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 15px; }
+        .campo { padding: 16px 0; border-top: 1px solid var(--border); }
+        .campo:first-of-type { border-top: 0; padding-top: 4px; }
+        .campo .rot { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+        .campo .val { margin-top: 4px; word-break: break-word; }
+        .campo .val.slug { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; background: var(--surface-2); padding: 3px 9px; border-radius: 6px; }
 
-        .segmentos { display: flex; gap: 5px; margin: 8px 0 4px; }
-        .segmentos span { width: 26px; height: 14px; border: 1px solid var(--ink); }
-        .segmentos .ok { background: var(--ink); }
-        .segmentos .atencao { background: repeating-linear-gradient(90deg, var(--ink) 0 3px, var(--paper) 3px 5px); }
-        .check-topo { display: flex; align-items: baseline; gap: 12px; }
-        .check-topo .fracao { font-size: 30px; font-weight: 700; line-height: 1; }
-        .check-list { list-style: none; margin: 12px 0 0; padding: 0; }
-        .check-list li { display: flex; gap: 10px; padding: 5px 0; font-size: 15px; }
-        .ico { flex: none; width: 22px; height: 22px; display: grid; place-items: center; font-size: 12px; font-weight: 700; line-height: 1; }
-        .ico.ok { background: var(--ink); color: var(--paper); border-radius: 50%; }
-        .ico.atencao { border: 1.5px solid var(--ink); border-radius: 50%; }
-        .ico.ruim { border: 1.5px solid var(--ink); }
-        .nota { margin-top: 8px; font-size: 13px; font-style: italic; }
-        .rodape-bloco { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
-        .bloco-sep { margin-top: 36px; }
+        .check-head { display: flex; align-items: center; gap: 14px; }
+        .check-head .rot { margin: 0; }
+        .ring { --p: 0; flex: none; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--meter-ok) calc(var(--p) * 1%), var(--surface-2) 0); }
+        .ring.warn { background: conic-gradient(var(--meter-warn) calc(var(--p) * 1%), var(--surface-2) 0); }
+        .ring.bad { background: conic-gradient(var(--meter-bad) calc(var(--p) * 1%), var(--surface-2) 0); }
+        .ring span { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+        .check-list { list-style: none; padding: 0; margin: 12px 0 0; }
+        .check-list li { display: flex; gap: 10px; padding: 6px 0; font-size: 14px; }
+        .ico { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+        .ico.ok { background: var(--ok-bg); color: var(--ok); }
+        .ico.atencao { background: var(--warn-bg); color: var(--warn); }
+        .ico.ruim { background: var(--bad-bg); color: var(--bad); }
+        .nota { font-size: 12px; color: var(--muted); margin-top: 8px; }
+        .chip { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 99px; background: var(--surface-2); color: var(--muted); margin-top: 6px; }
+        .rodape-card { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 
-        /* =====================================================================
-           ESTILO A · JORNAL  (cabeçalho de jornal, filetes finos, duas colunas)
-           ===================================================================== */
-        body[data-estilo="a"] .masthead { text-align: center; }
-        body[data-estilo="a"] .masthead .faixa { justify-content: center; gap: 28px; letter-spacing: .14em; text-transform: uppercase; font-style: normal; font-size: 12px; padding: 8px 0; border-top: 6px double var(--ink); border-bottom: 1px solid var(--ink); }
-        body[data-estilo="a"] .masthead h1 { font-size: 76px; padding: 14px 0 10px; border-bottom: 3px solid var(--ink); }
-        @media (max-width: 900px) { body[data-estilo="a"] .masthead h1 { font-size: 52px; } }
-        body[data-estilo="a"] h2 { font-variant: small-caps; letter-spacing: .14em; font-size: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--ink); }
-        body[data-estilo="a"] .saida { padding-left: 40px; border-left: 1px solid var(--ink); }
-        @media (max-width: 900px) { body[data-estilo="a"] .saida { padding-left: 0; border-left: 0; } }
-        body[data-estilo="a"] .titulo-txt { font-size: 22px; }
+        /* Histórico */
+        .hist-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-top: 1px solid var(--border); }
+        .hist-item:first-of-type { border-top: 0; }
+        .hist-info { min-width: 0; }
+        .hist-tit { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hist-sub { font-size: 12px; color: var(--muted); }
+        .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 99px; margin-right: 6px; background: var(--ok-bg); color: var(--ok); }
+        .tag.seo { background: var(--warn-bg); color: var(--warn); }
+        .hist-acoes { display: flex; gap: 6px; flex: none; }
 
-        /* =====================================================================
-           ESTILO B · PAPEL  (uma coluna, muito respiro, sem caixas)
-           ===================================================================== */
-        body[data-estilo="b"] .masthead, body[data-estilo="b"] .app { max-width: 700px; }
-        body[data-estilo="b"] .masthead { padding-top: 56px; }
-        body[data-estilo="b"] .masthead h1 { font-size: 44px; font-weight: 400; font-style: italic; }
-        body[data-estilo="b"] .masthead .faixa { font-size: 15px; }
-        body[data-estilo="b"] .app { display: block; padding-top: 32px; }
-        body[data-estilo="b"] .saida { margin-top: 72px; padding-top: 28px; border-top: 1px solid var(--ink); }
-        body[data-estilo="b"] h2 { font-size: 20px; font-style: italic; font-weight: 400; margin-bottom: 20px; }
-        body[data-estilo="b"] label { font-weight: 400; font-style: italic; font-size: 16px; margin-top: 28px; }
-        body[data-estilo="b"] input, body[data-estilo="b"] textarea { border: 0; border-bottom: 1px solid var(--ink); padding: 8px 0; background: transparent; }
-        body[data-estilo="b"] textarea { height: 150px; }
-        body[data-estilo="b"] .btn { border: 0; background: none; color: var(--ink); padding: 8px 0; margin-right: 22px; text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
-        body[data-estilo="b"] .btn.primario { font-weight: 700; }
-        body[data-estilo="b"] .btn.primario::after { content: " →"; }
-        body[data-estilo="b"] .btn:hover, body[data-estilo="b"] .btn.primario:hover { background: none; color: var(--ink); text-decoration-thickness: 2px; }
-        body[data-estilo="b"] .botoes { gap: 0; margin-top: 32px; }
-        body[data-estilo="b"] .opcao { grid-template-columns: 30px minmax(0, 1fr); padding: 28px 0; border-top: 0; }
-        body[data-estilo="b"] .opcao + .opcao { border-top: 1px solid var(--ink); }
-        body[data-estilo="b"] .num { font-size: 15px; font-style: italic; font-weight: 400; padding-top: 6px; }
-        body[data-estilo="b"] .titulo-txt { font-size: 27px; font-weight: 400; line-height: 1.25; }
-        body[data-estilo="b"] .meter { height: 5px; }
-        body[data-estilo="b"] .mini { border: 0; background: none; padding: 2px 0; margin-right: 16px; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
-        body[data-estilo="b"] .mini.cheio { background: none; color: var(--ink); font-weight: 700; }
-        body[data-estilo="b"] .mini:hover, body[data-estilo="b"] .mini.cheio:hover { background: none; color: var(--ink); text-decoration-thickness: 2px; }
-        body[data-estilo="b"] .acoes { gap: 0; }
-        body[data-estilo="b"] .campo { padding: 26px 0; }
-        body[data-estilo="b"] .campo .rot { font-weight: 400; font-style: italic; letter-spacing: 0; text-transform: none; font-size: 15px; }
-        body[data-estilo="b"] .campo .val { font-size: 19px; }
-        body[data-estilo="b"] .segmentos span { width: 22px; height: 8px; }
-
-        /* =====================================================================
-           ESTILO C · BLOCO  (contraste máximo, bordas grossas, blocos invertidos)
-           ===================================================================== */
-        body[data-estilo="c"] .masthead { max-width: none; padding: 0; background: var(--ink); color: var(--paper); }
-        body[data-estilo="c"] .masthead .faixa, body[data-estilo="c"] .masthead h1 { max-width: 1100px; margin-left: auto; margin-right: auto; padding-left: 24px; padding-right: 24px; }
-        body[data-estilo="c"] .masthead .faixa { padding-top: 14px; font-size: 14px; font-style: normal; text-transform: uppercase; letter-spacing: .12em; }
-        body[data-estilo="c"] .masthead h1 { font-size: 84px; font-weight: 900; padding-bottom: 18px; line-height: 1; letter-spacing: -.02em; }
-        @media (max-width: 900px) { body[data-estilo="c"] .masthead h1 { font-size: 54px; } }
-        body[data-estilo="c"] .app { gap: 36px; padding-top: 36px; }
-        body[data-estilo="c"] .bloco { border: 3px solid var(--ink); padding: 20px; box-shadow: 7px 7px 0 var(--ink); }
-        body[data-estilo="c"] .saida { display: grid; gap: 36px; }
-        body[data-estilo="c"] .saida .bloco-sep { margin-top: 0; }
-        body[data-estilo="c"] h2 { margin: -20px -20px 18px; padding: 9px 20px; background: var(--ink); color: var(--paper); text-transform: uppercase; letter-spacing: .14em; font-size: 14px; }
-        body[data-estilo="c"] input, body[data-estilo="c"] textarea { border-width: 2px; }
-        body[data-estilo="c"] .btn { border-width: 3px; font-weight: 700; padding: 11px 20px; box-shadow: 4px 4px 0 var(--ink); }
-        body[data-estilo="c"] .btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
-        body[data-estilo="c"] .mini { border-width: 2px; font-weight: 700; }
-        body[data-estilo="c"] .opcao { border-top-width: 2px; }
-        body[data-estilo="c"] .num { background: var(--ink); color: var(--paper); width: 34px; height: 34px; display: grid; place-items: center; font-size: 18px; }
-        body[data-estilo="c"] .opcao { grid-template-columns: 44px minmax(0, 1fr); }
-        body[data-estilo="c"] .titulo-txt { font-weight: 800; }
-        body[data-estilo="c"] .selo { background: var(--ink); color: var(--paper); border-radius: 0; font-style: normal; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: .08em; }
-        body[data-estilo="c"] .meter { height: 16px; border-width: 2px; }
-        body[data-estilo="c"] .campo { border-top-width: 2px; }
-        body[data-estilo="c"] .campo .rot { background: var(--ink); color: var(--paper); padding: 1px 8px; display: inline-block; }
-        body[data-estilo="c"] .segmentos span { border-width: 2px; width: 30px; height: 18px; }
-        body[data-estilo="c"] .check-topo .fracao { font-size: 38px; font-weight: 900; }
+        /* Avisos rápidos */
+        #toasts { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 50; width: min(92vw, 420px); pointer-events: none; }
+        .toast { background: var(--text); color: var(--bg); padding: 11px 14px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 26px rgba(0,0,0,.28); border-left: 5px solid var(--teal); animation: sobe .2s ease; }
+        .toast.erro { border-left-color: var(--terra); }
+        @keyframes sobe { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     </style>
 </head>
-<body data-estilo="a" data-inverso="0">
-
-    <nav class="seletor" aria-label="Escolher estilo da demonstração">
-        <span class="rot">Estilo:</span>
-        <button type="button" data-estilo="a" aria-pressed="true">A · Jornal</button>
-        <button type="button" data-estilo="b" aria-pressed="false">B · Papel</button>
-        <button type="button" data-estilo="c" aria-pressed="false">C · Bloco</button>
-        <span class="sep"></span>
-        <button type="button" id="btnInverter" aria-pressed="false">Inverter cores</button>
-    </nav>
-
-    <header class="masthead">
-        <div class="faixa"><span>Assistente de SEO e títulos</span><span id="dataHoje"></span></div>
-        <h1>ES Hoje</h1>
+<body>
+    <header>
+        <div class="topo">
+            <div class="topo-in">
+                <div class="marca">
+                    <div class="logo" aria-hidden="true">ES</div>
+                    <div>
+                        <h1>ES Hoje</h1>
+                        <p>Assistente de SEO e títulos</p>
+                    </div>
+                </div>
+                <div class="topo-acoes">
+                    <button type="button" class="btn-topo" id="btnExemplo">Ver exemplo</button>
+                    <button type="button" class="btn-topo" id="btnTema" aria-label="Alternar entre modo claro e escuro">Modo escuro</button>
+                </div>
+            </div>
+        </div>
+        <div class="faixa"></div>
     </header>
 
-    <main class="app">
-        <!-- ============ Entrada ============ -->
-        <section class="entrada bloco" aria-label="Dados da matéria">
+    <main class="layout">
+        <!-- ============ Coluna da esquerda: entrada ============ -->
+        <section class="card entrada" aria-label="Dados da matéria">
             <h2>Matéria</h2>
 
+            <details class="config" id="configBox">
+                <summary>
+                    <span>Chave da API do Gemini</span>
+                    <span class="pill warn" id="chaveStatus">não configurada</span>
+                </summary>
+                <div class="config-body">
+                    <input type="password" id="apiKey" placeholder="Cole sua chave do Gemini aqui" autocomplete="off" aria-label="Chave da API do Gemini">
+                    <div class="hint">A chave fica salva automaticamente no seu navegador. Cada colega só precisa colar na primeira vez que acessar.</div>
+                </div>
+            </details>
+
             <label for="materia">Texto da matéria</label>
-            <textarea id="materia">Um acidente na Terceira Ponte, entre dois veículos, causou lentidão no sentido Vitória na manhã desta terça-feira. A batida interditou parcialmente uma das faixas e formou fila de carros no horário de pico. Não houve registro de feridos graves. A pista foi liberada após cerca de uma hora e meia, e o fluxo voltou ao normal ao longo da manhã. Os motoristas que passam pelo trecho devem redobrar a atenção.</textarea>
-            <div class="hint">405 caracteres • 70 palavras</div>
+            <textarea id="materia" placeholder="Cole o texto da matéria aqui..."></textarea>
+            <div class="hint" id="contadorMateria">0 caracteres • 0 palavras</div>
 
-            <label for="palavraChave">Palavra-chave <small>(obrigatório)</small></label>
-            <input type="text" id="palavraChave" value="acidente na terceira ponte">
+            <label for="palavraChave">Palavra-chave (obrigatório)</label>
+            <input type="text" id="palavraChave" placeholder="Ex: acidente na terceira ponte">
+            <div class="hint alerta" id="avisoKw" role="status"></div>
 
-            <label for="tituloEscolhido">Título escolhido <small>(só para gerar o SEO)</small></label>
-            <input type="text" id="tituloEscolhido" value="Acidente na Terceira Ponte causa lentidão no sentido Vitória">
+            <label for="tituloEscolhido">Título escolhido <span class="hint" style="display:inline">(só para gerar o SEO)</span></label>
+            <input type="text" id="tituloEscolhido" placeholder="Ex: Acidente na Terceira Ponte deixa trânsito lento">
 
             <div class="botoes">
-                <button type="button" class="btn primario">Gerar títulos</button>
-                <button type="button" class="btn">Gerar SEO</button>
-                <button type="button" class="btn">Limpar tudo</button>
+                <button type="button" class="btn btn-primario" id="btnTitulo">Gerar títulos <span class="sub">60 carac.</span></button>
+                <button type="button" class="btn btn-seo" id="btnSeo">Gerar SEO <span class="sub">Rank Math</span></button>
+                <button type="button" class="btn btn-fantasma" id="btnLimpar">Limpar tudo</button>
             </div>
-            <p class="chave">Chave da API do Gemini: configurada ✔</p>
+            <div class="atalho"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> gera os títulos. Dentro do campo "Título escolhido", gera o SEO.</div>
         </section>
 
-        <!-- ============ Resultados ============ -->
+        <!-- ============ Coluna da direita: resultados ============ -->
         <section class="saida" aria-label="Resultados">
-            <article class="bloco">
+            <div class="status" id="status" hidden role="status" aria-live="polite">
+                <div class="spin" aria-hidden="true"></div>
+                <div class="texto" id="statusTexto"></div>
+                <button type="button" class="mini aviso" id="btnCancelar">Cancelar</button>
+            </div>
+
+            <div class="banner" id="demoBanner" hidden>Exemplo com dados fictícios, só para mostrar o visual. Nada disto foi gerado pela IA nem salvo no histórico.</div>
+
+            <div class="vazio" id="vazio">
+                <strong>Os resultados aparecem aqui</strong>
+                Cole a matéria e a palavra-chave, depois:
+                <ol>
+                    <li>Gere as opções de título.</li>
+                    <li>Escolha uma com "Usar este e gerar SEO".</li>
+                    <li>Copie meta descrição, slug e palavra-chave foco.</li>
+                </ol>
+            </div>
+
+            <article class="card" id="cardTitulos" hidden>
                 <h2>Títulos</h2>
-
-                <div class="opcao">
-                    <div class="num">1</div>
-                    <div>
-                        <div class="titulo-txt">Acidente na Terceira Ponte causa lentidão no sentido Vitória <span class="selo">mais segura</span></div>
-                        <div class="mrow"><div class="meter warn"><i style="width:100%"></i></div><span class="mlabel">60/60 caracteres</span></div>
-                        <div class="acoes"><button type="button" class="mini">Copiar</button><button type="button" class="mini cheio">Usar este e gerar SEO</button></div>
-                    </div>
-                </div>
-
-                <div class="opcao">
-                    <div class="num">2</div>
-                    <div>
-                        <div class="titulo-txt">Acidente na Terceira Ponte interdita faixa e gera fila</div>
-                        <div class="mrow"><div class="meter"><i style="width:90%"></i></div><span class="mlabel">54/60 caracteres</span></div>
-                        <div class="acoes"><button type="button" class="mini">Copiar</button><button type="button" class="mini cheio">Usar este e gerar SEO</button></div>
-                    </div>
-                </div>
-
-                <div class="opcao">
-                    <div class="num">3</div>
-                    <div>
-                        <div class="titulo-txt">Dois carros batem e acidente na Terceira Ponte trava o trânsito</div>
-                        <div class="mrow"><div class="meter bad"><i style="width:100%"></i></div><span class="mlabel bad">63/60 caracteres • passou do limite</span></div>
-                        <div class="acoes"><button type="button" class="mini">Copiar</button><button type="button" class="mini cheio">Usar este e gerar SEO</button><button type="button" class="mini">Encurtar</button></div>
-                    </div>
-                </div>
-
-                <div class="opcao">
-                    <div class="num">4</div>
-                    <div>
-                        <div class="titulo-txt">Acidente na Terceira Ponte: pista é liberada após 1h30</div>
-                        <div class="mrow"><div class="meter"><i style="width:90%"></i></div><span class="mlabel">54/60 caracteres</span></div>
-                        <div class="acoes"><button type="button" class="mini">Copiar</button><button type="button" class="mini cheio">Usar este e gerar SEO</button></div>
-                    </div>
-                </div>
-
-                <div class="opcao">
-                    <div class="num">5</div>
-                    <div>
-                        <div class="titulo-txt">Motoristas enfrentam fila após acidente na Terceira Ponte nesta terça-feira</div>
-                        <div class="mrow"><div class="meter bad"><i style="width:100%"></i></div><span class="mlabel bad">75/60 caracteres • passou do limite</span></div>
-                        <div class="acoes"><button type="button" class="mini">Copiar</button><button type="button" class="mini cheio">Usar este e gerar SEO</button><button type="button" class="mini">Encurtar</button></div>
-                    </div>
-                </div>
-
-                <div class="legenda">Barra cheia: dentro do limite • pontilhada: no limite • hachurada: passou do limite.</div>
+                <div id="listaTitulos"></div>
+                <div class="chip" id="provTitulos" hidden></div>
             </article>
 
-            <article class="bloco bloco-sep">
+            <article class="card seo" id="cardSeo" hidden>
                 <h2>SEO (Rank Math)</h2>
-
-                <div class="campo">
-                    <div class="rot">Meta descrição</div>
-                    <div class="val">Acidente na Terceira Ponte entre dois veículos causou lentidão no sentido Vitória nesta terça. Não houve feridos graves e a pista foi liberada.</div>
-                    <div class="mrow"><div class="meter warn"><i style="width:95%"></i></div><span class="mlabel">~876px de 920px (estimativa) • 143 caracteres</span></div>
-                    <div class="acoes"><button type="button" class="mini">Copiar</button></div>
-                </div>
-
-                <div class="campo">
-                    <div class="rot">Slug</div>
-                    <div class="val"><span class="slug">acidente-terceira-ponte</span></div>
-                    <div class="mrow"><div class="meter warn"><i style="width:92%"></i></div><span class="mlabel">23/25 caracteres</span></div>
-                    <div class="acoes"><button type="button" class="mini">Copiar</button></div>
-                </div>
-
-                <div class="campo">
-                    <div class="rot">Palavra-chave foco</div>
-                    <div class="val">acidente na terceira ponte <em>(trânsito na Terceira Ponte)</em></div>
-                    <div class="acoes"><button type="button" class="mini">Copiar</button></div>
-                </div>
-
-                <div class="campo">
-                    <div class="rot">Checklist do Rank Math</div>
-                    <div class="check-topo">
-                        <span class="fracao">5/6</span>
-                        <span class="segmentos" aria-hidden="true"><span class="ok"></span><span class="ok"></span><span class="ok"></span><span class="atencao"></span><span class="ok"></span><span class="ok"></span></span>
-                    </div>
-                    <ul class="check-list">
-                        <li><span class="ico ok">✔</span><span>A palavra-chave está no título.</span></li>
-                        <li><span class="ico ok">✔</span><span>A palavra-chave está no começo do título.</span></li>
-                        <li><span class="ico ok">✔</span><span>A palavra-chave está na meta descrição.</span></li>
-                        <li><span class="ico atencao">!</span><span>O slug tem só parte da palavra-chave (limite de 25 caracteres).</span></li>
-                        <li><span class="ico ok">✔</span><span>A palavra-chave aparece no começo do texto da matéria (primeiros 10%).</span></li>
-                        <li><span class="ico ok">✔</span><span>A palavra-chave aparece 1 vez no texto (densidade de 5,7%).</span></li>
-                    </ul>
-                    <div class="nota">Verificação por texto exato, sem diferenciar acentos nem maiúsculas. O Rank Math pode aceitar variações da palavra-chave.</div>
-                    <div class="rodape-bloco"><button type="button" class="mini cheio">Copiar tudo</button><span class="mlabel">Respondido por: exemplo</span></div>
-                </div>
+                <div id="conteudoSeo"></div>
             </article>
+
+            <section class="card" id="cardHistorico" hidden>
+                <h2 id="tituloHistorico">Histórico</h2>
+                <div id="listaHistorico"></div>
+                <div class="acoes"><button type="button" class="mini" id="btnLimparHistorico">Limpar histórico</button></div>
+            </section>
         </section>
     </main>
 
+    <div id="toasts" aria-live="polite"></div>
+
     <script>
-        const corpo = document.body;
-        const botoesEstilo = document.querySelectorAll('.seletor button[data-estilo]');
+        // ---------- Limites (a conferência é feita aqui no código, não pela IA) ----------
+        const LIMITE_TITULO = 60;       // caracteres
+        const LIMITE_META_PX = 920;     // pixels (estimativa)
+        const ALVO_META_CARAC = 150;    // alvo em caracteres para pedir à IA
+        const LIMITE_SLUG = 25;         // caracteres
+        const AVISO_MATERIA_LONGA = 20000; // caracteres
+        const MAX_HISTORICO = 10;
+        const CHAVE_HISTORICO = 'esHojeHistorico';
+        const CHAVE_RASCUNHO = 'esHojeRascunho';
+        const CHAVE_TEMA = 'esHojeTema';
 
-        function aplicarEstilo(e) {
-            corpo.dataset.estilo = e;
-            botoesEstilo.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.estilo === e)));
+        const estado = {
+            titulos: [], segura: 0, palavraChave: "", provTitulos: "", entradaTitulosId: null,
+            seo: null, provSeo: "", entradaSeoId: null, demo: false
+        };
+        let controleGeracao = null;
+
+        class ErroCancelado extends Error {
+            constructor() { super("Geração cancelada."); this.name = "ErroCancelado"; }
         }
-        function aplicarInverso(sim) {
-            corpo.dataset.inverso = sim ? "1" : "0";
-            document.getElementById('btnInverter').setAttribute('aria-pressed', String(sim));
+
+        // ---------- Utilidades ----------
+        const $ = (id) => document.getElementById(id);
+        const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+
+        function el(tag, props = {}, ...filhos) {
+            const e = document.createElement(tag);
+            Object.assign(e, props);
+            filhos.forEach(f => e.append(f));
+            return e;
         }
 
-        botoesEstilo.forEach(b => b.addEventListener('click', () => aplicarEstilo(b.dataset.estilo)));
-        document.getElementById('btnInverter').addEventListener('click', () => aplicarInverso(corpo.dataset.inverso !== "1"));
+        function normalizar(s) {
+            return String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+        }
 
-        document.getElementById('dataHoje').textContent =
-            new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        // Slug: minúsculas, sem acento, sem caracteres especiais, sem ano, até LIMITE_SLUG
+        function limparSlug(s) {
+            let t = normalizar(s)
+                .replace(/\b(19|20)\d{2}\b/g, "")
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "");
+            if (t.length > LIMITE_SLUG) {
+                if (t[LIMITE_SLUG] === "-") {
+                    t = t.slice(0, LIMITE_SLUG);
+                } else {
+                    const i = t.lastIndexOf("-", LIMITE_SLUG);
+                    t = i > 0 ? t.slice(0, i) : t.slice(0, LIMITE_SLUG);
+                }
+            }
+            return t.replace(/-+$/g, "");
+        }
 
-        // Permite abrir direto num estilo: arquivo.html#b  ou  arquivo.html#c-inverso
-        const hash = location.hash.replace('#', '');
-        if (/^[abc]/.test(hash)) aplicarEstilo(hash[0]);
-        if (hash.includes('inverso')) aplicarInverso(true);
+        // Largura estimada em pixels (Arial 14px, aproximando o resultado do Google)
+        const canvasMedida = document.createElement("canvas").getContext("2d");
+        function medirPx(texto) {
+            canvasMedida.font = "14px Arial";
+            return Math.round(canvasMedida.measureText(texto).width);
+        }
+
+        function lerJSON(texto) {
+            let t = String(texto).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+            try { return JSON.parse(t); } catch (e) { /* tenta extrair */ }
+            const m = t.match(/\{[\s\S]*\}/);
+            if (m) {
+                try { return JSON.parse(m[0]); } catch (e) { /* cai no erro abaixo */ }
+            }
+            throw new Error("A IA devolveu uma resposta fora do formato esperado. Tente novamente.");
+        }
+
+        function toast(msg, tipo) {
+            const t = el("div", { className: "toast" + (tipo === "erro" ? " erro" : ""), textContent: msg });
+            $("toasts").append(t);
+            setTimeout(() => t.remove(), tipo === "erro" ? 4500 : 1800);
+        }
+
+        async function copiar(texto, btn) {
+            try {
+                await navigator.clipboard.writeText(texto);
+            } catch (e) {
+                const ta = document.createElement("textarea");
+                ta.value = texto;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand("copy");
+                ta.remove();
+            }
+            toast("Copiado!");
+            if (btn) {
+                const original = btn.textContent;
+                btn.textContent = "Copiado ✔";
+                setTimeout(() => { btn.textContent = original; }, 1200);
+            }
+        }
+
+        function botaoMini(texto, aoClicar, extra) {
+            return el("button", { className: "mini" + (extra ? " " + extra : ""), type: "button", textContent: texto, onclick: (ev) => aoClicar(ev.currentTarget) });
+        }
+
+        // Barra de medição: verde-azulado dentro do limite, laranja perto, tijolo acima
+        function medidor(valor, limite, rotulo) {
+            const razao = valor / limite;
+            const nivel = razao > 1 ? "bad" : razao >= 0.92 ? "warn" : "ok";
+            const barra = el("div", { className: "meter " + (nivel === "ok" ? "" : nivel) });
+            const preenchimento = el("i");
+            preenchimento.style.width = Math.min(100, razao * 100) + "%";
+            barra.append(preenchimento);
+            return el("div", { className: "mrow" }, barra, el("span", { className: "mlabel " + nivel, textContent: rotulo }));
+        }
+
+        // ---------- Estado da tela ----------
+        function atualizarVazio() {
+            const algo = !$("cardTitulos").hidden || !$("cardSeo").hidden || !$("status").hidden || !$("demoBanner").hidden;
+            $("vazio").hidden = algo;
+        }
+
+        function setOcupado(sim) {
+            $("btnTitulo").disabled = sim;
+            $("btnSeo").disabled = sim;
+        }
+
+        function statusCarregando(msg) {
+            const s = $("status");
+            s.hidden = false;
+            s.className = "status";
+            $("statusTexto").textContent = msg;
+            $("btnCancelar").hidden = false;
+            atualizarVazio();
+        }
+        function statusErro(msg) {
+            const s = $("status");
+            s.hidden = false;
+            s.className = "status erro";
+            $("statusTexto").textContent = msg;
+            $("btnCancelar").hidden = true;
+            atualizarVazio();
+        }
+        function statusCancelado() {
+            const s = $("status");
+            s.hidden = false;
+            s.className = "status neutro";
+            $("statusTexto").textContent = "Geração cancelada.";
+            $("btnCancelar").hidden = true;
+            atualizarVazio();
+        }
+        function statusLimpar() {
+            $("status").hidden = true;
+            atualizarVazio();
+        }
+
+        function esconderCards() {
+            $("cardTitulos").hidden = true;
+            $("cardSeo").hidden = true;
+            estado.titulos = []; estado.seo = null;
+            estado.entradaTitulosId = null; estado.entradaSeoId = null;
+            estado.provTitulos = ""; estado.provSeo = "";
+            atualizarVazio();
+        }
+
+        // ---------- Contador, aviso de palavra-chave e chave ----------
+        function atualizarContador() {
+            const t = $("materia").value;
+            const palavras = t.trim() ? t.trim().split(/\s+/).length : 0;
+            const div = $("contadorMateria");
+            div.textContent = `${t.length.toLocaleString('pt-BR')} caracteres • ${palavras.toLocaleString('pt-BR')} palavras`;
+            if (t.length > AVISO_MATERIA_LONGA) {
+                div.append(el("span", { className: "mlabel bad", textContent: " — matéria muito longa: a resposta pode demorar ou estourar o limite gratuito." }));
+            }
+        }
+
+        function atualizarAvisoKw() {
+            const kw = normalizar($("palavraChave").value);
+            const texto = normalizar($("materia").value);
+            $("avisoKw").textContent = (kw && texto && !texto.includes(kw))
+                ? "⚠ Esta palavra-chave não aparece no texto da matéria (busca exata, sem diferenciar acento ou maiúsculas). Confira se está escrita como no texto."
+                : "";
+        }
+
+        function atualizarChaveStatus() {
+            const tem = $("apiKey").value.trim().length > 0;
+            const p = $("chaveStatus");
+            p.textContent = tem ? "configurada ✔" : "não configurada";
+            p.className = "pill " + (tem ? "ok" : "warn");
+        }
+
+        // ---------- Rascunho dos campos (sobrevive a recarregar a página) ----------
+        let timerRascunho = null;
+        function salvarRascunho() {
+            clearTimeout(timerRascunho);
+            timerRascunho = setTimeout(() => {
+                try {
+                    localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify({
+                        materia: $("materia").value,
+                        palavraChave: $("palavraChave").value,
+                        tituloEscolhido: $("tituloEscolhido").value
+                    }));
+                } catch (e) { /* sem espaço ou bloqueado: ignora */ }
+            }, 400);
+        }
+
+        function restaurarRascunho() {
+            try {
+                const r = JSON.parse(localStorage.getItem(CHAVE_RASCUNHO) || "null");
+                if (!r) return;
+                $("materia").value = r.materia || "";
+                $("palavraChave").value = r.palavraChave || "";
+                $("tituloEscolhido").value = r.tituloEscolhido || "";
+            } catch (e) { /* ignora */ }
+        }
+
+        // ---------- Histórico (últimos 10 resultados) ----------
+        function lerHistorico() {
+            try {
+                const lista = JSON.parse(localStorage.getItem(CHAVE_HISTORICO) || "[]");
+                return Array.isArray(lista) ? lista : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function gravarHistorico(lista) {
+            const l = lista.slice(0, MAX_HISTORICO);
+            while (l.length) {
+                try {
+                    localStorage.setItem(CHAVE_HISTORICO, JSON.stringify(l));
+                    return;
+                } catch (e) {
+                    l.pop(); // sem espaço: descarta o mais antigo e tenta de novo
+                }
+            }
+            try { localStorage.removeItem(CHAVE_HISTORICO); } catch (e) { /* ignora */ }
+        }
+
+        function salvarEntrada(tipo, ctx) {
+            const entrada = {
+                id: Date.now(),
+                quando: new Date().toISOString(),
+                tipo,
+                palavraChave: ctx.palavraChave,
+                tituloEscolhido: ctx.tituloEscolhido,
+                materia: ctx.materia.slice(0, 20000),
+                provedor: tipo === 'titulo' ? estado.provTitulos : estado.provSeo
+            };
+            if (tipo === 'titulo') {
+                entrada.titulos = estado.titulos;
+                entrada.segura = estado.segura;
+                estado.entradaTitulosId = entrada.id;
+            } else {
+                const { materia, ...resto } = estado.seo;
+                entrada.seo = resto;
+                estado.entradaSeoId = entrada.id;
+            }
+            gravarHistorico([entrada, ...lerHistorico()]);
+            desenharHistorico();
+        }
+
+        // Atualiza a entrada atual (por exemplo, depois de "Encurtar")
+        function atualizarEntrada(tipo) {
+            const id = tipo === 'titulo' ? estado.entradaTitulosId : estado.entradaSeoId;
+            if (!id) return;
+            const lista = lerHistorico();
+            const e = lista.find(x => x.id === id);
+            if (!e) return;
+            if (tipo === 'titulo') {
+                e.titulos = estado.titulos;
+            } else if (estado.seo) {
+                const { materia, ...resto } = estado.seo;
+                e.seo = resto;
+            }
+            gravarHistorico(lista);
+            desenharHistorico();
+        }
+
+        function mostrarEntrada(e) {
+            if (e.tipo === 'titulo') {
+                estado.titulos = e.titulos || [];
+                estado.segura = e.segura || 0;
+                estado.palavraChave = e.palavraChave || "";
+                estado.provTitulos = e.provedor || "";
+                estado.entradaTitulosId = e.id;
+                desenharTitulos();
+            } else if (e.seo) {
+                estado.seo = { ...e.seo, materia: e.materia || "" };
+                estado.provSeo = e.provedor || "";
+                estado.entradaSeoId = e.id;
+                desenharSeo();
+            }
+        }
+
+        // Mostra a entrada e, se houver, a do outro tipo feita para a mesma matéria
+        function mostrarComPar(e) {
+            mostrarEntrada(e);
+            const chave = normalizar(e.materia || "").slice(0, 300);
+            const par = lerHistorico().find(x =>
+                x.tipo !== e.tipo &&
+                normalizar(x.palavraChave || "") === normalizar(e.palavraChave || "") &&
+                normalizar(x.materia || "").slice(0, 300) === chave);
+            if (par) mostrarEntrada(par);
+        }
+
+        function abrirEntrada(id) {
+            const e = lerHistorico().find(x => x.id === id);
+            if (!e) return;
+            estado.demo = false;
+            $("demoBanner").hidden = true;
+            esconderCards();
+            statusLimpar();
+            $("materia").value = e.materia || "";
+            $("palavraChave").value = e.palavraChave || "";
+            $("tituloEscolhido").value = e.tituloEscolhido || "";
+            atualizarContador();
+            atualizarAvisoKw();
+            salvarRascunho();
+            mostrarComPar(e);
+            const alvo = !$("cardTitulos").hidden ? $("cardTitulos") : $("cardSeo");
+            alvo.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+
+        function excluirEntrada(id) {
+            gravarHistorico(lerHistorico().filter(x => x.id !== id));
+            if (estado.entradaTitulosId === id) estado.entradaTitulosId = null;
+            if (estado.entradaSeoId === id) estado.entradaSeoId = null;
+            desenharHistorico();
+        }
+
+        function limparHistorico() {
+            if (!confirm("Apagar todo o histórico deste navegador?")) return;
+            try { localStorage.removeItem(CHAVE_HISTORICO); } catch (e) { /* ignora */ }
+            estado.entradaTitulosId = null;
+            estado.entradaSeoId = null;
+            desenharHistorico();
+        }
+
+        function desenharHistorico() {
+            const lista = lerHistorico();
+            const box = $("listaHistorico");
+            box.innerHTML = "";
+            $("cardHistorico").hidden = lista.length === 0;
+            if (!lista.length) return;
+
+            $("tituloHistorico").textContent = `Histórico (últimos ${MAX_HISTORICO})`;
+            lista.forEach(e => {
+                const data = new Date(e.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                const tag = el("span", { className: "tag" + (e.tipo === 'seo' ? " seo" : ""), textContent: e.tipo === 'titulo' ? "Títulos" : "SEO" });
+                const principal = e.tipo === 'seo' && e.tituloEscolhido ? e.tituloEscolhido : (e.palavraChave || "(sem palavra-chave)");
+                const info = el("div", { className: "hist-info" },
+                    el("div", { className: "hist-tit", textContent: principal }),
+                    el("div", { className: "hist-sub" }, tag, `${data}${e.provedor ? " • " + e.provedor : ""}`)
+                );
+                box.append(el("div", { className: "hist-item" }, info,
+                    el("div", { className: "hist-acoes" },
+                        botaoMini("Abrir", () => abrirEntrada(e.id)),
+                        botaoMini("Excluir", () => excluirEntrada(e.id)))));
+            });
+        }
+
+        // ---------- Chamada ao Gemini ----------
+        async function fetchComTimeout(url, opcoes, ms, sinalExterno) {
+            const controle = new AbortController();
+            if (sinalExterno) {
+                if (sinalExterno.aborted) controle.abort();
+                else sinalExterno.addEventListener("abort", () => controle.abort(), { once: true });
+            }
+            const timer = setTimeout(() => controle.abort(), ms);
+            try {
+                return await fetch(url, { ...opcoes, signal: controle.signal });
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+        // Vários modelos, nova tentativa em 503/429. Pede a resposta em JSON.
+        // Devolve { texto, provedor }.
+        async function chamarGemini(apiKey, promptTexto, reportar, sinal) {
+            const modelos = [
+                "gemini-flash-latest",
+                "gemini-flash-lite-latest",
+                "gemini-3.1-flash-lite-preview"
+            ];
+            let ultimoErro = "";
+
+            for (const modelo of modelos) {
+                for (let tentativa = 1; tentativa <= 2; tentativa++) {
+                    if (sinal && sinal.aborted) throw new ErroCancelado();
+                    reportar(`Gemini ${modelo}, tentativa ${tentativa}`);
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
+                    let response;
+                    try {
+                        response = await fetchComTimeout(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-goog-api-key': apiKey
+                            },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: promptTexto }] }],
+                                generationConfig: { responseMimeType: "application/json" }
+                            })
+                        }, 30000, sinal);
+                    } catch (e) {
+                        if (sinal && sinal.aborted) throw new ErroCancelado();
+                        ultimoErro = `Gemini ${modelo}: sem resposta em 30s`;
+                        break;
+                    }
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        return { texto: data.candidates[0].content.parts[0].text, provedor: `Gemini (${modelo})` };
+                    }
+
+                    ultimoErro = `Gemini ${modelo}: erro ${response.status}`;
+
+                    if (response.status === 503 || response.status === 429) {
+                        await esperar(2000 * tentativa);
+                        continue;
+                    }
+                    if (response.status === 404) break;
+
+                    throw new Error(`Gemini (${response.status}): ${await response.text()}`);
+                }
+            }
+            throw new Error(`Todos os modelos do Gemini falharam. Último erro: ${ultimoErro}`);
+        }
+
+        // Devolve { texto, provedor }.
+        async function chamarIA(promptTexto, reportar, sinal) {
+            const apiKey = $("apiKey").value.trim();
+            if (!apiKey) throw new Error("Cole a chave da API do Gemini.");
+            const rep = (msg) => { if (reportar) reportar(`${msg}... Aguarde.`); };
+            return await chamarGemini(apiKey, promptTexto, rep, sinal);
+        }
+
+        // ---------- Prompts (a IA devolve JSON; as contagens são feitas pelo código) ----------
+        function promptTitulos(palavraChave, materia) {
+            return `Papel: Você é o editor de SEO do ES Hoje sugerindo títulos. Contexto: O título tem até ${LIMITE_TITULO} caracteres. Número que carrega peso de notícia pode abrir o título; número decorativo fica no meio ou no fim. Clickbait é permitido, com um limite único: o título nunca promete algo que o texto não entrega. Palavra-chave: ${palavraChave} Expectativa: Gere cinco opções de título para a matéria abaixo, cada uma com a palavra-chave. Formato: Responda somente com um objeto JSON válido, sem nenhum texto fora dele, neste formato: {"titulos": ["opção 1", "opção 2", "opção 3", "opção 4", "opção 5"], "mais_segura": 0}. Em "mais_segura", se o texto não tiver um fato forte para abrir o título, informe o número (de 1 a 5) da opção mais segura; caso contrário use 0. Não coloque numeração nem contagem de caracteres dentro dos títulos. Restrições: Nenhuma opção pode passar de ${LIMITE_TITULO} caracteres. Nenhuma pode prometer informação que não está no texto. Informações: ${materia}`;
+        }
+
+        function promptSeo(tituloEscolhido, materia) {
+            return `Papel: Você é o editor de SEO preenchendo os campos do Rank Math. Contexto: A meta descrição resume a matéria, contém a palavra-chave foco e tem cerca de ${ALVO_META_CARAC} caracteres (nunca mais que 155). O slug é curto, em português, sem palavras desnecessárias, com até ${LIMITE_SLUG} caracteres. Título escolhido: ${tituloEscolhido} Expectativa: A partir do texto abaixo, gere os campos: meta descrição, slug e palavra-chave foco. Formato: Responda somente com um objeto JSON válido, sem nenhum texto fora dele, neste formato: {"meta_descricao": "...", "slug": "...", "palavra_chave_foco": "...", "segunda_opcao_foco": ""}. Em "segunda_opcao_foco", se o texto tocar mais de um tema forte, escolha o foco mais forte pelo peso da matéria em "palavra_chave_foco" e coloque a segunda opção aqui; caso contrário deixe vazio. Restrições: A meta descrição não pode ser cópia do título. O slug não pode ter acento, caractere especial ou data. Informações: ${materia}`;
+        }
+
+        // ---------- Renderização: títulos ----------
+        function desenharTitulos() {
+            const box = $("listaTitulos");
+            box.innerHTML = "";
+
+            estado.titulos.forEach((titulo, i) => {
+                const passou = titulo.length > LIMITE_TITULO;
+                const txt = el("div", { className: "titulo-txt" }, titulo);
+                if (estado.segura === i + 1) txt.append(el("span", { className: "selo", textContent: "mais segura" }));
+
+                const acoes = el("div", { className: "acoes" },
+                    botaoMini("Copiar", (b) => copiar(titulo, b)),
+                    botaoMini("Usar este e gerar SEO", () => usarTitulo(titulo), "destaque")
+                );
+                if (passou) acoes.append(botaoMini("Encurtar", (b) => encurtarTitulo(i, b), "aviso"));
+
+                const rotulo = `${titulo.length}/${LIMITE_TITULO} caracteres` + (passou ? " • passou do limite" : "");
+                box.append(el("div", { className: "opcao" },
+                    el("div", { className: "num", textContent: String(i + 1) }),
+                    el("div", {}, txt, medidor(titulo.length, LIMITE_TITULO, rotulo), acoes)
+                ));
+            });
+
+            const prov = $("provTitulos");
+            prov.hidden = !estado.provTitulos;
+            prov.textContent = estado.provTitulos ? `Respondido por: ${estado.provTitulos}` : "";
+            $("cardTitulos").hidden = false;
+            atualizarVazio();
+        }
+
+        function usarTitulo(titulo) {
+            $("tituloEscolhido").value = titulo;
+            salvarRascunho();
+            gerar('seo');
+        }
+
+        async function encurtarTitulo(i, btn) {
+            btn.disabled = true;
+            btn.textContent = "Encurtando...";
+            try {
+                const prompt = `Reescreva o título abaixo para ter no máximo ${LIMITE_TITULO} caracteres contando os espaços, mantendo a palavra-chave "${estado.palavraChave}" e sem prometer nada além do que o título original já diz. Título: ${estado.titulos[i]} Responda somente com um objeto JSON válido neste formato: {"texto": "título reescrito"}.`;
+                const resposta = await chamarIA(prompt, null, null);
+                const dados = lerJSON(resposta.texto);
+                const novo = String(dados.texto || "").trim();
+                if (!novo) throw new Error("Resposta vazia.");
+                estado.titulos[i] = novo;
+                desenharTitulos();
+                atualizarEntrada('titulo');
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = "Encurtar";
+                toast("Não foi possível encurtar: " + e.message, "erro");
+            }
+        }
+
+        // ---------- Checklist do Rank Math (calculado no código, sem chamar a IA) ----------
+        function contarOcorrencias(texto, chave) {
+            if (!chave) return 0;
+            let n = 0, i = 0;
+            while ((i = texto.indexOf(chave, i)) !== -1) { n++; i += chave.length; }
+            return n;
+        }
+
+        function checklistRankMath(s) {
+            const kw = normalizar(s.foco);
+            if (!kw) return [];
+
+            const titulo = normalizar(s.titulo);
+            const meta = normalizar(s.meta);
+            const texto = normalizar(s.materia);
+            const itens = [];
+
+            // 1) Palavra-chave no título
+            const posTitulo = titulo.indexOf(kw);
+            if (posTitulo >= 0) {
+                itens.push({ nivel: "ok", texto: "A palavra-chave está no título." });
+                // 2) Perto do começo do título (aproximação: primeiro quarto do título)
+                if (posTitulo <= Math.floor(titulo.length * 0.25)) {
+                    itens.push({ nivel: "ok", texto: "A palavra-chave está no começo do título." });
+                } else {
+                    itens.push({ nivel: "atencao", texto: "A palavra-chave está no título, mas longe do começo. O Rank Math prefere no início." });
+                }
+            } else {
+                itens.push({ nivel: "ruim", texto: "A palavra-chave não aparece no título." });
+                itens.push({ nivel: "ruim", texto: "Sem palavra-chave no título, ela também não está no começo dele." });
+            }
+
+            // 3) Meta descrição
+            itens.push(meta.includes(kw)
+                ? { nivel: "ok", texto: "A palavra-chave está na meta descrição." }
+                : { nivel: "ruim", texto: "A palavra-chave não aparece na meta descrição." });
+
+            // 4) Slug (palavra-chave inteira ou só parte dela)
+            const kwSlug = kw.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+            const slug = normalizar(s.slug);
+            if (kwSlug && slug.includes(kwSlug)) {
+                itens.push({ nivel: "ok", texto: "A palavra-chave está no slug." });
+            } else {
+                const palavras = kw.split(" ").filter(p => p.length >= 4);
+                const parcial = palavras.some(p => slug.includes(p.replace(/[^a-z0-9]+/g, "")));
+                itens.push(parcial
+                    ? { nivel: "atencao", texto: `O slug tem só parte da palavra-chave (limite de ${LIMITE_SLUG} caracteres).` }
+                    : { nivel: "ruim", texto: "A palavra-chave não aparece no slug." });
+            }
+
+            // 5) Primeiros 10% do texto
+            const inicio = texto.slice(0, Math.ceil(texto.length * 0.1));
+            itens.push(inicio.includes(kw)
+                ? { nivel: "ok", texto: "A palavra-chave aparece no começo do texto da matéria (primeiros 10%)." }
+                : { nivel: "ruim", texto: "A palavra-chave não aparece no começo do texto (primeiros 10%). Vale citá-la no primeiro parágrafo." });
+
+            // 6) Presença e frequência no texto
+            const vezes = contarOcorrencias(texto, kw);
+            const palavrasTexto = texto.split(" ").filter(Boolean).length;
+            const densidade = palavrasTexto ? (vezes * kw.split(" ").length / palavrasTexto * 100) : 0;
+            if (vezes === 0) {
+                itens.push({ nivel: "ruim", texto: "A palavra-chave não aparece no texto da matéria." });
+            } else {
+                itens.push({ nivel: "ok", texto: `A palavra-chave aparece ${vezes} ${vezes === 1 ? "vez" : "vezes"} no texto (densidade de ${densidade.toFixed(1).replace(".", ",")}%).` });
+            }
+
+            return itens;
+        }
+
+        function blocoChecklist(s) {
+            const itens = checklistRankMath(s);
+            const oks = itens.filter(i => i.nivel === "ok").length;
+            const razao = itens.length ? oks / itens.length : 0;
+            const nivel = razao >= 0.8 ? "" : razao >= 0.5 ? " warn" : " bad";
+
+            const anel = el("div", { className: "ring" + nivel }, el("span", { textContent: `${oks}/${itens.length}` }));
+            anel.style.setProperty("--p", String(Math.round(razao * 100)));
+
+            const lista = el("ul", { className: "check-list" });
+            const simbolos = { ok: "✔", atencao: "!", ruim: "✖" };
+            itens.forEach(i => {
+                lista.append(el("li", {},
+                    el("span", { className: "ico " + i.nivel, textContent: simbolos[i.nivel] }),
+                    el("span", { textContent: i.texto })
+                ));
+            });
+
+            return el("div", { className: "campo" },
+                el("div", { className: "check-head" }, anel, el("div", { className: "rot", textContent: "Checklist do Rank Math" })),
+                lista,
+                el("div", { className: "nota", textContent: "Verificação por texto exato, sem diferenciar acentos nem maiúsculas. O Rank Math pode aceitar variações da palavra-chave." })
+            );
+        }
+
+        // ---------- Renderização: SEO ----------
+        function campoSeo(rotulo, valorNode, extraNodes, acoesNodes) {
+            const acoes = el("div", { className: "acoes" });
+            acoesNodes.forEach(a => acoes.append(a));
+            const c = el("div", { className: "campo" }, el("div", { className: "rot", textContent: rotulo }), valorNode);
+            extraNodes.forEach(n => c.append(n));
+            c.append(acoes);
+            return c;
+        }
+
+        function desenharSeo() {
+            const box = $("conteudoSeo");
+            box.innerHTML = "";
+            const s = estado.seo;
+
+            // Meta descrição
+            const px = medirPx(s.meta);
+            const metaPassou = px > LIMITE_META_PX;
+            const acoesMeta = [botaoMini("Copiar", (b) => copiar(s.meta, b))];
+            if (metaPassou) acoesMeta.push(botaoMini("Encurtar", (b) => encurtarMeta(b), "aviso"));
+            box.append(campoSeo("Meta descrição",
+                el("div", { className: "val", textContent: s.meta }),
+                [medidor(px, LIMITE_META_PX, `~${px}px de ${LIMITE_META_PX}px (estimativa) • ${s.meta.length} caracteres` + (metaPassou ? " • passou do limite" : ""))],
+                acoesMeta));
+
+            // Slug
+            const slugOk = s.slug && s.slug.length <= LIMITE_SLUG;
+            box.append(campoSeo("Slug",
+                el("div", {}, el("span", { className: "val slug", textContent: s.slug })),
+                [medidor(s.slug.length, LIMITE_SLUG, `${s.slug.length}/${LIMITE_SLUG} caracteres` + (s.slugAjustado ? " • ajustado automaticamente (sem acento, sem caracteres especiais)" : "") + (slugOk ? "" : " • fora do limite"))],
+                [botaoMini("Copiar", (b) => copiar(s.slug, b))]));
+
+            // Palavra-chave foco
+            const textoFoco = s.segunda ? `${s.foco} (${s.segunda})` : s.foco;
+            box.append(campoSeo("Palavra-chave foco",
+                el("div", { className: "val", textContent: textoFoco }), [],
+                [botaoMini("Copiar", (b) => copiar(s.foco, b))]));
+
+            // Checklist do Rank Math
+            box.append(blocoChecklist(s));
+
+            // Copiar tudo + provedor
+            const tudo = `Meta descrição: ${s.meta}\nSlug: ${s.slug}\nPalavra-chave foco: ${s.foco}`;
+            const rodape = el("div", { className: "rodape-card" }, botaoMini("Copiar tudo", (b) => copiar(tudo, b), "destaque"));
+            if (estado.provSeo) rodape.append(el("span", { className: "chip", textContent: `Respondido por: ${estado.provSeo}` }));
+            box.append(rodape);
+
+            $("cardSeo").hidden = false;
+            atualizarVazio();
+        }
+
+        async function encurtarMeta(btn) {
+            btn.disabled = true;
+            btn.textContent = "Encurtando...";
+            try {
+                const prompt = `Reescreva a meta descrição abaixo com no máximo 140 caracteres, mantendo a palavra-chave foco "${estado.seo.foco}" e o sentido original, sem inventar informações. Meta descrição: ${estado.seo.meta} Responda somente com um objeto JSON válido neste formato: {"texto": "meta descrição reescrita"}.`;
+                const resposta = await chamarIA(prompt, null, null);
+                const dados = lerJSON(resposta.texto);
+                const novo = String(dados.texto || "").trim();
+                if (!novo) throw new Error("Resposta vazia.");
+                estado.seo.meta = novo;
+                desenharSeo();
+                atualizarEntrada('seo');
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = "Encurtar";
+                toast("Não foi possível encurtar: " + e.message, "erro");
+            }
+        }
+
+        // ---------- Fluxo principal ----------
+        function cancelar() {
+            if (controleGeracao) controleGeracao.abort();
+        }
+
+        function limparTudo() {
+            if (!confirm("Limpar matéria, palavra-chave, título escolhido e resultados? (O histórico é mantido.)")) return;
+            $("materia").value = "";
+            $("palavraChave").value = "";
+            $("tituloEscolhido").value = "";
+            try { localStorage.removeItem(CHAVE_RASCUNHO); } catch (e) { /* ignora */ }
+            estado.demo = false;
+            $("demoBanner").hidden = true;
+            esconderCards();
+            statusLimpar();
+            atualizarContador();
+            atualizarAvisoKw();
+        }
+
+        async function gerar(tipo) {
+            if (controleGeracao) return;
+
+            const apiKey = $("apiKey").value.trim();
+            const materia = $("materia").value.trim();
+            const palavraChave = $("palavraChave").value.trim();
+            const tituloEscolhido = $("tituloEscolhido").value.trim();
+
+            if (!apiKey) {
+                $("configBox").open = true;
+                $("apiKey").focus();
+                toast("Cole a chave da API do Gemini para continuar.", "erro");
+                return;
+            }
+            if (!materia || !palavraChave) {
+                (!materia ? $("materia") : $("palavraChave")).focus();
+                toast("Preencha o texto da matéria e a palavra-chave.", "erro");
+                return;
+            }
+            if (tipo === 'seo' && !tituloEscolhido) {
+                $("tituloEscolhido").focus();
+                toast("Para gerar o SEO, preencha também o título escolhido.", "erro");
+                return;
+            }
+
+            try { localStorage.setItem('esHojeGeminiKey', apiKey); } catch (e) { /* ignora */ }
+
+            if (estado.demo) {
+                // Sai do modo exemplo: os resultados fictícios dão lugar aos reais
+                estado.demo = false;
+                $("demoBanner").hidden = true;
+                esconderCards();
+            }
+
+            controleGeracao = new AbortController();
+            const sinal = controleGeracao.signal;
+            setOcupado(true);
+            statusCarregando("A processar matéria... Aguarde.");
+
+            try {
+                const prompt = tipo === 'titulo'
+                    ? promptTitulos(palavraChave, materia)
+                    : promptSeo(tituloEscolhido, materia);
+
+                const resposta = await chamarIA(prompt, statusCarregando, sinal);
+                const dados = lerJSON(resposta.texto);
+
+                if (tipo === 'titulo') {
+                    const lista = (Array.isArray(dados.titulos) ? dados.titulos : [])
+                        .map(t => String(t).replace(/^\s*\d+\s*[.)\-–]\s*/, "").replace(/\s*\(\d+\s*(carac\w*)?\)\s*$/i, "").trim())
+                        .filter(Boolean);
+                    if (!lista.length) throw new Error("A IA não devolveu nenhum título. Tente novamente.");
+                    estado.titulos = lista;
+                    estado.segura = Number(dados.mais_segura) || 0;
+                    estado.palavraChave = palavraChave;
+                    estado.provTitulos = resposta.provedor;
+                    desenharTitulos();
+                } else {
+                    const slugOriginal = String(dados.slug || "").trim();
+                    let slug = limparSlug(slugOriginal);
+                    if (!slug) slug = limparSlug(tituloEscolhido);
+                    const meta = String(dados.meta_descricao || "").trim();
+                    if (!meta) throw new Error("A IA não devolveu a meta descrição. Tente novamente.");
+                    estado.seo = {
+                        meta,
+                        slug,
+                        slugAjustado: slug !== slugOriginal,
+                        foco: String(dados.palavra_chave_foco || palavraChave).trim(),
+                        segunda: String(dados.segunda_opcao_foco || "").trim(),
+                        titulo: tituloEscolhido,
+                        materia: materia
+                    };
+                    estado.provSeo = resposta.provedor;
+                    desenharSeo();
+                }
+
+                salvarEntrada(tipo, { materia, palavraChave, tituloEscolhido });
+                statusLimpar();
+                (tipo === 'titulo' ? $("cardTitulos") : $("cardSeo")).scrollIntoView({ behavior: "smooth", block: "nearest" });
+            } catch (error) {
+                if (error instanceof ErroCancelado || sinal.aborted) {
+                    statusCancelado();
+                } else {
+                    statusErro(`Falha na comunicação: ${error.message}`);
+                }
+            } finally {
+                controleGeracao = null;
+                setOcupado(false);
+            }
+        }
+
+        // ---------- Exemplo (dados fictícios, só para ver o visual) ----------
+        function verExemplo() {
+            if (controleGeracao) return;
+            if (($("materia").value.trim() || $("palavraChave").value.trim()) && !estado.demo &&
+                !confirm("O exemplo vai substituir o que está nos campos agora (o rascunho salvo só muda quando você voltar a digitar). Continuar?")) return;
+
+            const materia = "Um acidente na Terceira Ponte, entre dois veículos, causou lentidão no sentido Vitória na manhã desta terça-feira. A batida interditou parcialmente uma das faixas e formou fila de carros no horário de pico. Não houve registro de feridos graves. A pista foi liberada após cerca de uma hora e meia, e o fluxo voltou ao normal ao longo da manhã. Os motoristas que passam pelo trecho devem redobrar a atenção.";
+            const titulos = [
+                "Acidente na Terceira Ponte causa lentidão no sentido Vitória",
+                "Acidente na Terceira Ponte interdita faixa e gera fila",
+                "Dois carros batem e acidente na Terceira Ponte trava o trânsito",
+                "Acidente na Terceira Ponte: pista é liberada após 1h30",
+                "Motoristas enfrentam fila após acidente na Terceira Ponte nesta terça-feira"
+            ];
+
+            $("materia").value = materia;
+            $("palavraChave").value = "acidente na terceira ponte";
+            $("tituloEscolhido").value = titulos[0];
+            atualizarContador();
+            atualizarAvisoKw();
+
+            esconderCards();
+            statusLimpar();
+            estado.demo = true;
+            estado.titulos = titulos;
+            estado.segura = 1;
+            estado.palavraChave = "acidente na terceira ponte";
+            estado.provTitulos = "exemplo";
+            estado.seo = {
+                meta: "Acidente na Terceira Ponte entre dois veículos causou lentidão no sentido Vitória nesta terça. Não houve feridos graves e a pista foi liberada.",
+                slug: "acidente-terceira-ponte",
+                slugAjustado: false,
+                foco: "acidente na terceira ponte",
+                segunda: "trânsito na Terceira Ponte",
+                titulo: titulos[0],
+                materia
+            };
+            estado.provSeo = "exemplo";
+            $("demoBanner").hidden = false;
+            desenharTitulos();
+            desenharSeo();
+        }
+
+        // ---------- Tema claro / escuro ----------
+        function temaAtual() {
+            const forcado = document.documentElement.dataset.theme;
+            if (forcado === "dark" || forcado === "light") return forcado;
+            return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        function atualizarBotaoTema() {
+            $("btnTema").textContent = temaAtual() === "dark" ? "Modo claro" : "Modo escuro";
+        }
+        function alternarTema() {
+            const novo = temaAtual() === "dark" ? "light" : "dark";
+            document.documentElement.dataset.theme = novo;
+            try { localStorage.setItem(CHAVE_TEMA, novo); } catch (e) { /* ignora */ }
+            atualizarBotaoTema();
+        }
+
+        // ---------- Inicialização ----------
+        document.addEventListener("DOMContentLoaded", () => {
+            try {
+                const savedKey = localStorage.getItem('esHojeGeminiKey');
+                if (savedKey) $("apiKey").value = savedKey;
+                // A chave do Groq (de versões anteriores) não é mais usada: remove do navegador
+                localStorage.removeItem('esHojeGroqKey');
+            } catch (e) { /* ignora */ }
+            $("configBox").open = !$("apiKey").value.trim();
+            atualizarChaveStatus();
+            atualizarBotaoTema();
+
+            restaurarRascunho();
+            atualizarContador();
+            atualizarAvisoKw();
+
+            $("btnTitulo").addEventListener("click", () => gerar('titulo'));
+            $("btnSeo").addEventListener("click", () => gerar('seo'));
+            $("btnLimpar").addEventListener("click", limparTudo);
+            $("btnCancelar").addEventListener("click", cancelar);
+            $("btnExemplo").addEventListener("click", verExemplo);
+            $("btnTema").addEventListener("click", alternarTema);
+            $("btnLimparHistorico").addEventListener("click", limparHistorico);
+            window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", atualizarBotaoTema);
+
+            $("apiKey").addEventListener("input", atualizarChaveStatus);
+            ['materia', 'palavraChave', 'tituloEscolhido'].forEach(id => {
+                $(id).addEventListener('input', () => {
+                    salvarRascunho();
+                    if (id !== 'tituloEscolhido') atualizarAvisoKw();
+                    if (id === 'materia') atualizarContador();
+                });
+            });
+
+            // Atalho: Ctrl+Enter (ou Cmd+Enter)
+            document.addEventListener("keydown", (ev) => {
+                if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+                    ev.preventDefault();
+                    const noTitulo = document.activeElement && document.activeElement.id === "tituloEscolhido";
+                    gerar(noTitulo && $("tituloEscolhido").value.trim() ? 'seo' : 'titulo');
+                }
+            });
+
+            // Reabre o último resultado, se houver
+            const lista = lerHistorico();
+            if (lista.length) mostrarComPar(lista[0]);
+            desenharHistorico();
+            atualizarVazio();
+        });
     </script>
 </body>
 </html>
