@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lide - Assistente de SEO e Títulos</title>
+    <title>Lide: assistente de títulos e SEO para redações</title>
     <script>
         // Aplica o tema salvo antes de desenhar a página (evita "piscar")
         try {
@@ -12,7 +12,7 @@
         } catch (e) { /* sem armazenamento: segue o tema do sistema */ }
     </script>
     <style>
-        /* ---------- Paleta ES Hoje ----------
+        /* ---------- Paleta Lide ----------
            #038C8C verde-azulado | #9FBFBC verde-névoa | #BF681B laranja queimado
            #D97652 terracota     | #8C403A tijolo
            Versões mais escuras são usadas onde há texto branco ou texto sobre fundo claro (contraste). */
@@ -203,10 +203,10 @@
         <div class="topo">
             <div class="topo-in">
                 <div class="marca">
-                    <div class="logo" aria-hidden="true">ES</div>
+                    <div class="logo" aria-hidden="true">L</div>
                     <div>
-                        <h1>ES Hoje</h1>
-                        <p>Assistente de SEO e títulos</p>
+                        <h1>Lide</h1>
+                        <p>Assistente de títulos e SEO para redações</p>
                     </div>
                 </div>
                 <div class="topo-acoes">
@@ -328,7 +328,7 @@
         }
 
         function normalizar(s) {
-            return String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+            return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
         }
 
         // Slug: minúsculas, sem acento, sem caracteres especiais, sem ano, até LIMITE_SLUG
